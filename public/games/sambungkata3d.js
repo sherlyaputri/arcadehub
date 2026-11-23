@@ -47,10 +47,10 @@ class SambungKataGame3D {
     this.scene.background = new THREE.Color(0xfb923c);
     this.scene.fog = new THREE.FogExp2(0xfb923c, 0.009);
 
-    // Camera
-    this.camera = new THREE.PerspectiveCamera(50, this.width / this.height, 0.1, 800);
-    this.camera.position.set(0, 3.8, 8.5);
-    this.camera.lookAt(0, 2.0, 0);
+    // Camera - Posisi close-up potret Roblox (Persis Gambar Referensi)
+    this.camera = new THREE.PerspectiveCamera(46, this.width / this.height, 0.1, 800);
+    this.camera.position.set(0, 3.4, 6.8);
+    this.camera.lookAt(0, 2.7, 0);
 
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -200,11 +200,34 @@ class SambungKataGame3D {
     torso.castShadow = true;
     avatar.add(torso);
 
-    // Badge / Detail Baju di Dada
-    const badgeGeo = new THREE.PlaneGeometry(0.55, 0.55);
-    const badgeMat = new THREE.MeshBasicMaterial({ color: outfitColor });
+    // Graphic Print Sablon Bulat Putih di Dada (Persis Gambar Kaos Hitam)
+    const shirtCanvas = document.createElement('canvas');
+    shirtCanvas.width = 128;
+    shirtCanvas.height = 128;
+    const sctx = shirtCanvas.getContext('2d');
+    sctx.fillStyle = '#18181b';
+    sctx.fillRect(0, 0, 128, 128);
+    // Lingkaran motif putih
+    sctx.strokeStyle = '#ffffff';
+    sctx.lineWidth = 6;
+    sctx.beginPath();
+    sctx.arc(64, 64, 34, 0, Math.PI * 2);
+    sctx.stroke();
+    sctx.fillStyle = '#ffffff';
+    sctx.beginPath();
+    sctx.arc(64, 64, 18, 0, Math.PI * 2);
+    sctx.fill();
+    sctx.fillStyle = '#18181b';
+    sctx.font = 'bold 20px sans-serif';
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'middle';
+    sctx.fillText('★', 64, 64);
+
+    const shirtTex = new THREE.CanvasTexture(shirtCanvas);
+    const badgeGeo = new THREE.PlaneGeometry(0.68, 0.68);
+    const badgeMat = new THREE.MeshBasicMaterial({ map: shirtTex, transparent: true });
     const badge = new THREE.Mesh(badgeGeo, badgeMat);
-    badge.position.set(0, 2.1, 0.33);
+    badge.position.set(0, 2.08, 0.33);
     avatar.add(badge);
 
     // 3. Tangan Kiri & Kanan (Arms)
@@ -285,22 +308,36 @@ class SambungKataGame3D {
     head.castShadow = true;
     avatar.add(head);
 
-    // 5. Rambut Anime Hitam Blok (Black Anime Hair Fringe)
-    const hairTopGeo = new THREE.BoxGeometry(1.18, 0.45, 1.18);
+    // 5. Rambut Anime Hitam Blok & Berantakan (Messy Spiky Black Anime Hair persis screenshot)
+    const hairTopGeo = new THREE.BoxGeometry(1.22, 0.52, 1.22);
     const hairTop = new THREE.Mesh(hairTopGeo, hairMat);
-    hairTop.position.set(0, 3.82, 0);
+    hairTop.position.set(0, 3.84, 0);
     avatar.add(hairTop);
 
     // Poni Rambut Depan Jatuh di Atas Kacamata
-    for (let b = -0.4; b <= 0.4; b += 0.22) {
-      const bangGeo = new THREE.BoxGeometry(0.24, 0.45, 0.35);
-      const bang = new THREE.Mesh(bangGeo, hairMat);
-      bang.position.set(b, 3.65, 0.52);
-      bang.rotation.x = 0.2;
-      avatar.add(bang);
-    }
+    const bangsConfig = [
+      { x: -0.42, y: 3.65, z: 0.54, w: 0.22, h: 0.48, rotZ: 0.1, rotX: 0.22 },
+      { x: -0.22, y: 3.58, z: 0.56, w: 0.24, h: 0.56, rotZ: -0.05, rotX: 0.25 },
+      { x: 0.0,   y: 3.62, z: 0.58, w: 0.25, h: 0.52, rotZ: 0.08, rotX: 0.22 },
+      { x: 0.22,  y: 3.56, z: 0.56, w: 0.24, h: 0.58, rotZ: 0.12, rotX: 0.25 },
+      { x: 0.42,  y: 3.66, z: 0.54, w: 0.22, h: 0.48, rotZ: -0.1, rotX: 0.22 },
+      // Sisi samping
+      { x: -0.58, y: 3.45, z: 0.1,  w: 0.20, h: 0.75, rotZ: -0.15, rotX: 0.0 },
+      { x: 0.58,  y: 3.45, z: 0.1,  w: 0.20, h: 0.75, rotZ: 0.15, rotX: 0.0 },
+      // Spike belakang & atas
+      { x: -0.25, y: 4.12, z: -0.1, w: 0.28, h: 0.35, rotZ: 0.2, rotX: -0.2 },
+      { x: 0.25,  y: 4.15, z: -0.15, w: 0.28, h: 0.38, rotZ: -0.18, rotX: -0.2 }
+    ];
 
-    // 6. 💬 BUBBLE CARD 3D MELAYANG DI ATAS KEPALA (PERSIS GAMBAR: BENDERA INDONESIA 🇮🇩 & DUA HURUF BESAR)
+    bangsConfig.forEach(cfg => {
+      const bMesh = new THREE.Mesh(new THREE.BoxGeometry(cfg.w, cfg.h, 0.32), hairMat);
+      bMesh.position.set(cfg.x, cfg.y, cfg.z);
+      bMesh.rotation.x = cfg.rotX || 0;
+      bMesh.rotation.z = cfg.rotZ || 0;
+      avatar.add(bMesh);
+    });
+
+    // 6. 💬 BUBBLE CARD 3D MELAYANG DI ATAS KEPALA (PERSIS GAMBAR: IKON HP, BENDERA ID & DUA HURUF BESAR)
     const bubbleCanvas = document.createElement('canvas');
     bubbleCanvas.width = 512;
     bubbleCanvas.height = 512;
@@ -309,7 +346,7 @@ class SambungKataGame3D {
     const bubbleTexture = new THREE.CanvasTexture(bubbleCanvas);
     const bubbleMat = new THREE.SpriteMaterial({ map: bubbleTexture, transparent: true });
     const bubbleSprite = new THREE.Sprite(bubbleMat);
-    bubbleSprite.position.set(0, 5.6, 0);
+    bubbleSprite.position.set(0, 5.7, 0);
     bubbleSprite.scale.set(3.4, 3.4, 1);
     avatar.add(bubbleSprite);
 
@@ -334,52 +371,119 @@ class SambungKataGame3D {
       animTime: Math.random() * 10,
       jumpY: 0,
       isJumping: false,
-      playerName: player.name
+      playerName: player.name,
+      lastAnsweredWord: ''
     };
   }
 
-  // Gambar Kartu Putih Melayang dengan Bendera 🇮🇩 dan Huruf Besar
-  updateAvatarBubbleCard(avatar, promptText, playerName) {
+  // Helper untuk gambar sudut bulat di Canvas
+  roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // Gambar Kartu Putih Melayang dengan Bendera 🇮🇩, Ikon HP, dan Huruf Besar (Persis Screenshot)
+  updateAvatarBubbleCard(avatar, promptText, displayName) {
     const { bubbleCanvas, bubbleTexture, bctx } = avatar.userData;
     bctx.clearRect(0, 0, 512, 512);
 
-    // 1. Text Top 99+ Nama Player
+    // 1. Text Rank / Title: Top 99+
+    bctx.save();
     bctx.fillStyle = '#ffffff';
     bctx.strokeStyle = '#000000';
-    bctx.lineWidth = 8;
-    bctx.font = 'bold 34px sans-serif';
+    bctx.lineWidth = 7;
+    bctx.font = '900 32px sans-serif';
     bctx.textAlign = 'center';
-    bctx.strokeText(`Top 99+`, 256, 52);
-    bctx.fillText(`Top 99+`, 256, 52);
+    bctx.strokeText('Top 99+', 256, 48);
+    bctx.fillText('Top 99+', 256, 48);
 
-    bctx.font = '900 44px sans-serif';
-    bctx.strokeText((playerName || 'PEMAIN').toUpperCase(), 256, 102);
-    bctx.fillText((playerName || 'PEMAIN').toUpperCase(), 256, 102);
+    // 2. Display Name / Last Answered Word (contoh: MINAOTUR di foto)
+    const upperText = (displayName || 'PEMAIN').toUpperCase();
+    bctx.lineWidth = 9;
+    bctx.font = '900 46px sans-serif';
+    bctx.strokeText(upperText, 256, 100);
+    bctx.fillText(upperText, 256, 100);
+    bctx.restore();
 
-    // 2. Ikon HP 📱 & Bendera Indonesia 🇮🇩
-    bctx.font = '40px sans-serif';
-    bctx.fillText(`📱 🇮🇩`, 256, 155);
+    // 3. Ikon HP 📱 & Bendera Indonesia 🇮🇩 (Digambar presisi via Canvas Vector)
+    // A. Ikon Smartphone Putih-Hitam di sebelah kiri
+    const phoneX = 222;
+    const phoneY = 145;
+    const phoneW = 28;
+    const phoneH = 42;
+    bctx.save();
+    bctx.fillStyle = '#ffffff';
+    bctx.strokeStyle = '#0f172a';
+    bctx.lineWidth = 3.5;
+    this.roundRectPath(bctx, phoneX - phoneW / 2, phoneY - phoneH / 2, phoneW, phoneH, 6);
+    bctx.fill();
+    bctx.stroke();
 
-    // 3. Kotak Putih Melayang Bersudut Bulat (White Rounded Speech Card)
+    // Layar HP Gelap
+    bctx.fillStyle = '#0f172a';
+    this.roundRectPath(bctx, phoneX - phoneW / 2 + 3.5, phoneY - phoneH / 2 + 5, phoneW - 7, phoneH - 12, 3);
+    bctx.fill();
+
+    // Notch / Home bar
+    bctx.fillStyle = '#ffffff';
+    bctx.fillRect(phoneX - 4, phoneY + phoneH / 2 - 4.5, 8, 2);
+    bctx.restore();
+
+    // B. Bendera Merah Putih Indonesia 🇮🇩 di sebelah kanan
+    const flagX = 288;
+    const flagY = 145;
+    const flagW = 44;
+    const flagH = 30;
+    bctx.save();
+    this.roundRectPath(bctx, flagX - flagW / 2, flagY - flagH / 2, flagW, flagH, 6);
+    bctx.clip();
+
+    // Merah atas
+    bctx.fillStyle = '#ef4444';
+    bctx.fillRect(flagX - flagW / 2, flagY - flagH / 2, flagW, flagH / 2);
+
+    // Putih bawah
+    bctx.fillStyle = '#ffffff';
+    bctx.fillRect(flagX - flagW / 2, flagY, flagW, flagH / 2);
+
+    // Border bingkai bendera
+    bctx.strokeStyle = '#334155';
+    bctx.lineWidth = 2.5;
+    this.roundRectPath(bctx, flagX - flagW / 2, flagY - flagH / 2, flagW, flagH, 6);
+    bctx.stroke();
+    bctx.restore();
+
+    // 4. Kotak Putih Melayang Bersudut Bulat (White Rounded Speech Card)
     bctx.save();
     bctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
     bctx.shadowBlur = 24;
-    bctx.shadowOffsetY = 12;
+    bctx.shadowOffsetY = 10;
 
     bctx.fillStyle = '#ffffff';
-    bctx.strokeStyle = '#0f172a';
+    bctx.strokeStyle = '#18181b';
     bctx.lineWidth = 14;
-    this.roundRect(bctx, 96, 180, 320, 290, 48);
+    this.roundRectPath(bctx, 116, 185, 280, 260, 48);
     bctx.fill();
     bctx.stroke();
     bctx.restore();
 
-    // 4. Huruf Promosi Besar di Tengah Kotak Putih (contoh: NJ atau TL)
-    bctx.fillStyle = '#0f172a';
-    bctx.font = '900 130px sans-serif';
+    // 5. Huruf Prompt Besar di Tengah Kotak Putih (contoh: NJ atau TL)
+    bctx.save();
+    bctx.fillStyle = '#18181b';
+    bctx.font = '900 135px sans-serif';
     bctx.textAlign = 'center';
     bctx.textBaseline = 'middle';
-    bctx.fillText(promptText || 'NJ', 256, 325);
+    bctx.fillText(promptText || 'NJ', 256, 315);
+    bctx.restore();
 
     bubbleTexture.needsUpdate = true;
   }
@@ -649,9 +753,9 @@ class SambungKataGame3D {
         const av = this.avatars[id];
         const isCurrentTurn = id === state.currentTurnId;
         const pData = state.playerData[id];
-        const pName = pData ? pData.name : av.playerName;
+        const displayName = av.lastAnsweredWord || (pData ? pData.name : av.playerName);
 
-        this.updateAvatarBubbleCard(av.root, state.prompt, pName);
+        this.updateAvatarBubbleCard(av.root, state.prompt, displayName);
 
         // Skala membesar sedikit jika giliran aktif
         av.bubbleSprite.scale.set(isCurrentTurn ? 3.9 : 3.2, isCurrentTurn ? 3.9 : 3.2, 1);
@@ -670,6 +774,7 @@ class SambungKataGame3D {
       if (av) {
         av.isJumping = true;
         av.jumpY = 0;
+        av.lastAnsweredWord = word;
       }
       if (playerId === this.selfId) {
         this.showFeedback(`✅ Kata "${word}" Benar! (+Skor)`, true);

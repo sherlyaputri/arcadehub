@@ -842,9 +842,9 @@ io.on('connection', (socket) => {
       return socket.emit('sambungkata:invalid', `Kata harus BERAWALAN dengan "${gd.prompt}"!`);
     }
 
-    // CEK VALIDASI KAMUS RESMI KBBI (Hanya kata baku & resmi yang diterima!)
+    // CEK VALIDASI KAMUS KATA (KBBI & Bahasa Sehari-hari / Slang Gaul)
     if (KBBI_SET.size > 0 && !KBBI_SET.has(cleanWord)) {
-      return socket.emit('sambungkata:invalid', `Kata "${cleanWord}" tidak ditemukan dalam kamus resmi KBBI!`);
+      return socket.emit('sambungkata:invalid', `Kata "${cleanWord}" tidak ditemukan dalam kamus kata!`);
     }
 
     // Ambil 2 huruf TERAKHIR dari kata ini untuk dioper ke pemain berikutnya!
