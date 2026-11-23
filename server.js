@@ -38,6 +38,20 @@ function generateRoomCode() {
 }
 
 // =================== SAMBUNG KATA 3D HELPERS ===================
+const skTimers = {};
+
+function clearSkTimer(roomId) {
+  if (skTimers[roomId]) {
+    clearInterval(skTimers[roomId]);
+    delete skTimers[roomId];
+  }
+}
+
+function setSkTimer(roomId, timer) {
+  clearSkTimer(roomId);
+  skTimers[roomId] = timer;
+}
+
 const SK_STARTING_SYLLABLES = [
   'AN', 'BA', 'CA', 'DA', 'GA', 'HA', 'JA', 'KA', 'LA', 'MA',
   'PA', 'RA', 'SA', 'TA', 'BE', 'DE', 'GE', 'KE', 'ME', 'PE',
@@ -47,7 +61,7 @@ const SK_STARTING_SYLLABLES = [
 ];
 
 function initSambungKataGame(room) {
-  if (room.skInterval) clearInterval(room.skInterval);
+  clearSkTimer(room.id);
 
   const playerIds = Object.keys(room.players);
   const playerData = {};
@@ -82,11 +96,11 @@ function initSambungKataGame(room) {
 }
 
 function startSambungKataTimer(room) {
-  if (room.skInterval) clearInterval(room.skInterval);
-  room.skInterval = setInterval(() => {
+  clearSkTimer(room.id);
+  const interval = setInterval(() => {
     const gd = room.gameData;
     if (!gd || gd.status !== 'playing') {
-      clearInterval(room.skInterval);
+      clearSkTimer(room.id);
       return;
     }
 
@@ -109,6 +123,8 @@ function startSambungKataTimer(room) {
       advanceSambungKataTurn(room, null);
     }
   }, 1000);
+
+  setSkTimer(room.id, interval);
 }
 
 function advanceSambungKataTurn(room, nextPrompt = null) {
@@ -121,7 +137,7 @@ function advanceSambungKataTurn(room, nextPrompt = null) {
   if (alivePlayers.length <= 1 && playerIds.length > 1) {
     gd.status = 'finished';
     gd.winner = alivePlayers[0] ? gd.playerData[alivePlayers[0]] : null;
-    if (room.skInterval) clearInterval(room.skInterval);
+    clearSkTimer(room.id);
     io.to(room.id).emit('sambungkata:update', gd);
     return;
   }
@@ -280,10 +296,7 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoomId];
     if (room.hostId !== socket.id) return;
 
-    if (room.skInterval) {
-      clearInterval(room.skInterval);
-      room.skInterval = null;
-    }
+    clearSkTimer(room.id);
 
     room.state = 'lobby';
     room.gameData = {};
@@ -848,7 +861,7 @@ io.on('connection', (socket) => {
     const remainingPlayers = Object.keys(room.players);
 
     if (remainingPlayers.length === 0) {
-      if (room.skInterval) clearInterval(room.skInterval);
+      clearSkTimer(currentRoomId);
       delete rooms[currentRoomId];
     } else {
       // If host left, transfer host
