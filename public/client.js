@@ -1,0 +1,392 @@
+// ArcadeHub Client Orchestrator
+const socket = io();
+
+// State
+let selfId = null;
+let currentRoom = null;
+let selectedColor = '#ff3366';
+let activeGameInstance = null;
+
+const COLORS = [
+  '#ff3366', '#00d2ff', '#00ff88', '#ffcc00',
+  '#b537f2', '#ff8800', '#ffffff', '#00ffff'
+];
+
+// DOM Elements
+const screenHome = document.getElementById('screenHome');
+const screenLobby = document.getElementById('screenLobby');
+const screenGame = document.getElementById('screenGame');
+
+const navRoomCode = document.getElementById('navRoomCode');
+const displayRoomCode = document.getElementById('displayRoomCode');
+const btnSoundToggle = document.getElementById('btnSoundToggle');
+
+// Home Inputs
+const createPlayerName = document.getElementById('createPlayerName');
+const createColorPicker = document.getElementById('createColorPicker');
+const btnCreateRoom = document.getElementById('btnCreateRoom');
+
+const joinRoomCode = document.getElementById('joinRoomCode');
+const joinPlayerName = document.getElementById('joinPlayerName');
+const joinColorPicker = document.getElementById('joinColorPicker');
+const btnJoinRoom = document.getElementById('btnJoinRoom');
+
+// Lobby Elements
+const currentGameLabel = document.getElementById('currentGameLabel');
+const hostGameSelector = document.getElementById('hostGameSelector');
+const selectGame = document.getElementById('selectGame');
+const playersList = document.getElementById('playersList');
+const playerCount = document.getElementById('playerCount');
+const btnCopyRoomLink = document.getElementById('btnCopyRoomLink');
+const btnToggleReady = document.getElementById('btnToggleReady');
+const btnStartGame = document.getElementById('btnStartGame');
+
+// Chat Elements
+const chatMessages = document.getElementById('chatMessages');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+
+// Game Arena Elements
+const arenaGameTitle = document.getElementById('arenaGameTitle');
+const arenaViewport = document.getElementById('arenaViewport');
+const btnBackToLobby = document.getElementById('btnBackToLobby');
+const racingCanvas = document.getElementById('racingCanvas');
+const domGameContainer = document.getElementById('domGameContainer');
+const mobileControls = document.getElementById('mobileControls');
+
+// Podium Modal
+const podiumModal = document.getElementById('podiumModal');
+const podiumList = document.getElementById('podiumList');
+const btnClosePodium = document.getElementById('btnClosePodium');
+
+// ==================== COLOR PICKERS SETUP ====================
+function initColorPickers() {
+  const createColorOpts = (container, isCreate) => {
+    container.innerHTML = '';
+    COLORS.forEach((color, idx) => {
+      const dot = document.createElement('div');
+      dot.className = 'color-option' + (idx === 0 ? ' selected' : '');
+      dot.style.backgroundColor = color;
+      dot.addEventListener('click', () => {
+        container.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+        dot.classList.add('selected');
+        selectedColor = color;
+        if (window.soundManager) window.soundManager.click();
+      });
+      container.appendChild(dot);
+    });
+  };
+
+  initDefaultName();
+  createColorOpts(createColorPicker, true);
+  createColorOpts(joinColorPicker, false);
+}
+
+function initDefaultName() {
+  const randomNum = Math.floor(100 + Math.random() * 900);
+  const defaultNick = 'Racer_' + randomNum;
+  createPlayerName.value = defaultNick;
+  joinPlayerName.value = 'Challenger_' + randomNum;
+}
+
+// ==================== SCREEN SWITCHER ====================
+function showScreen(screen) {
+  [screenHome, screenLobby, screenGame].forEach(s => s.classList.remove('active'));
+  screen.classList.add('active');
+}
+
+// ==================== HOME EVENTS ====================
+btnCreateRoom.addEventListener('click', () => {
+  if (window.soundManager) window.soundManager.init();
+  const name = createPlayerName.value.trim() || 'Host';
+  socket.emit('createRoom', { name, color: selectedColor });
+});
+
+btnJoinRoom.addEventListener('click', () => {
+  if (window.soundManager) window.soundManager.init();
+  const roomId = joinRoomCode.value.trim();
+  const name = joinPlayerName.value.trim() || 'Player';
+  if (!roomId) {
+    alert('Masukkan kode room terlebih dahulu!');
+    return;
+  }
+  socket.emit('joinRoom', { roomId, name, color: selectedColor });
+});
+
+// Sound Toggle
+btnSoundToggle.addEventListener('click', () => {
+  if (!window.soundManager) return;
+  window.soundManager.muted = !window.soundManager.muted;
+  btnSoundToggle.textContent = window.soundManager.muted ? '🔇' : '🔊';
+});
+
+// Copy Room Code
+btnCopyRoomLink.addEventListener('click', () => {
+  if (!currentRoom) return;
+  navigator.clipboard.writeText(currentRoom.id).then(() => {
+    btnCopyRoomLink.textContent = '✅ Disalin!';
+    setTimeout(() => { btnCopyRoomLink.textContent = '📋 Salin Kode Room'; }, 1500);
+  });
+});
+
+// ==================== LOBBY EVENTS ====================
+selectGame.addEventListener('change', () => {
+  const newGame = selectGame.value;
+  socket.emit('changeGame', newGame);
+});
+
+btnToggleReady.addEventListener('click', () => {
+  if (window.soundManager) window.soundManager.click();
+  socket.emit('toggleReady');
+});
+
+btnStartGame.addEventListener('click', () => {
+  if (window.soundManager) window.soundManager.click();
+  socket.emit('startGame');
+});
+
+btnBackToLobby.addEventListener('click', () => {
+  socket.emit('backToLobby');
+});
+
+// Chat Send
+chatForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  if (text) {
+    socket.emit('chatMessage', text);
+    chatInput.value = '';
+  }
+});
+
+// ==================== SOCKET EVENT LISTENERS ====================
+socket.on('connect', () => {
+  selfId = socket.id;
+});
+
+socket.on('errorMsg', (msg) => {
+  alert(msg);
+});
+
+socket.on('roomJoined', ({ room, selfId: myId }) => {
+  selfId = myId;
+  currentRoom = room;
+  navRoomCode.style.display = 'block';
+  displayRoomCode.textContent = room.id;
+  showScreen(screenLobby);
+  renderLobby();
+});
+
+socket.on('playerJoined', ({ player, room }) => {
+  currentRoom = room;
+  renderLobby();
+  addChatMessage({
+    sender: 'Sistem',
+    color: '#00ff88',
+    text: `${player.name} bergabung ke room!`
+  });
+});
+
+socket.on('playerLeft', ({ leftId, newHostId, room }) => {
+  currentRoom = room;
+  renderLobby();
+  addChatMessage({
+    sender: 'Sistem',
+    color: '#ff3366',
+    text: `Seorang pemain meninggalkan room.`
+  });
+});
+
+socket.on('roomUpdated', (room) => {
+  currentRoom = room;
+  renderLobby();
+});
+
+socket.on('gameChanged', ({ game, room }) => {
+  currentRoom = room;
+  renderLobby();
+  if (window.soundManager) window.soundManager.click();
+});
+
+socket.on('chatMessage', (msg) => {
+  addChatMessage(msg);
+});
+
+socket.on('gameStarted', ({ game, room }) => {
+  currentRoom = room;
+  launchGame(game);
+});
+
+socket.on('returnedToLobby', (room) => {
+  currentRoom = room;
+  if (activeGameInstance && activeGameInstance.destroy) {
+    activeGameInstance.destroy();
+    activeGameInstance = null;
+  }
+  podiumModal.style.display = 'none';
+  showScreen(screenLobby);
+  renderLobby();
+});
+
+// ==================== LOBBY RENDER ====================
+function renderLobby() {
+  if (!currentRoom) return;
+
+  const isHost = currentRoom.hostId === selfId;
+  const gameNames = {
+    racing: '🚜 Mining Rally 3D (Balap Tambang & Konstruksi)',
+    quiz: '🧠 Quiz Trivia Showdown',
+    territory: '⚔️ Territory Conquest (Perebutan Wilayah)',
+    tictactoe: '⚔️ Territory Conquest (Perebutan Wilayah)'
+  };
+
+  currentGameLabel.textContent = gameNames[currentRoom.game] || currentRoom.game;
+  hostGameSelector.style.display = isHost ? 'block' : 'none';
+  selectGame.value = currentRoom.game;
+
+  const playersArr = Object.values(currentRoom.players);
+  playerCount.textContent = playersArr.length;
+
+  playersList.innerHTML = playersArr.map(p => `
+    <div class="player-card">
+      <div class="player-avatar" style="background-color: ${p.color};">
+        ${p.name.charAt(0).toUpperCase()}
+      </div>
+      <div class="player-info">
+        <div class="player-name">
+          ${p.name}
+          ${p.isHost ? '<span class="host-tag">HOST</span>' : ''}
+        </div>
+        <div class="ready-tag ${p.ready ? 'is-ready' : 'not-ready'}">
+          ${p.ready ? '✅ Siap' : '⏳ Belum Siap'}
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Host start game button logic
+  btnStartGame.style.display = isHost ? 'block' : 'none';
+  const myPlayer = currentRoom.players[selfId];
+  if (myPlayer) {
+    btnToggleReady.textContent = myPlayer.ready ? 'Batalkan Siap' : 'Siap (Ready)';
+    btnToggleReady.className = myPlayer.ready ? 'btn btn-secondary' : 'btn btn-success';
+  }
+}
+
+function addChatMessage({ sender, color, text, time }) {
+  const msgEl = document.createElement('div');
+  msgEl.className = 'chat-msg';
+  msgEl.innerHTML = `
+    <span class="chat-sender" style="color: ${color || '#fff'}">${sender}:</span>
+    <span>${text}</span>
+    ${time ? `<span class="chat-time">${time}</span>` : ''}
+  `;
+  chatMessages.appendChild(msgEl);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// ==================== GAME LAUNCHER ====================
+function launchGame(gameId) {
+  if (activeGameInstance && activeGameInstance.destroy) {
+    activeGameInstance.destroy();
+    activeGameInstance = null;
+  }
+
+  showScreen(screenGame);
+
+  const isHost = currentRoom.hostId === selfId;
+  btnBackToLobby.style.display = isHost ? 'block' : 'none';
+
+  racingCanvas.style.display = 'none';
+  domGameContainer.style.display = 'none';
+  mobileControls.style.display = 'none';
+
+  if (gameId === 'racing') {
+    arenaGameTitle.textContent = '🚜 Mining Rally 3D (Balap Tambang & Konstruksi)';
+    mobileControls.style.display = 'flex';
+
+    if (window.RacingGame3D && typeof THREE !== 'undefined') {
+      activeGameInstance = new window.RacingGame3D(arenaViewport, socket, currentRoom, selfId);
+      activeGameInstance.startCountdown();
+    } else {
+      racingCanvas.style.display = 'block';
+      activeGameInstance = new window.RacingGame(racingCanvas, socket, currentRoom, selfId);
+      activeGameInstance.startCountdown();
+    }
+
+    setupTouchControls(activeGameInstance);
+
+  } else if (gameId === 'territory' || gameId === 'tictactoe') {
+    arenaGameTitle.textContent = '⚔️ Territory Conquest (Perebutan Wilayah)';
+    domGameContainer.style.display = 'flex';
+    if (window.TerritoryGame) {
+      activeGameInstance = new window.TerritoryGame(domGameContainer, socket, currentRoom, selfId);
+    } else if (window.TicTacToeGame) {
+      activeGameInstance = new window.TicTacToeGame(domGameContainer, socket, currentRoom, selfId);
+    }
+
+  } else if (gameId === 'quiz') {
+    arenaGameTitle.textContent = '🧠 Quiz Trivia Showdown';
+    domGameContainer.style.display = 'flex';
+    activeGameInstance = new window.QuizGame(domGameContainer, socket, currentRoom, selfId);
+  }
+}
+
+// Touch controls for mobile
+function setupTouchControls(game) {
+  const bindTouch = (id, keyName) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const start = (e) => {
+      e.preventDefault();
+      game.keys[keyName] = true;
+      el.classList.add('active');
+      if (navigator.vibrate) {
+        try { navigator.vibrate(12); } catch (err) {}
+      }
+    };
+
+    const end = (e) => {
+      e.preventDefault();
+      game.keys[keyName] = false;
+      el.classList.remove('active');
+    };
+
+    el.addEventListener('touchstart', start, { passive: false });
+    el.addEventListener('touchend', end, { passive: false });
+    el.addEventListener('touchcancel', end, { passive: false });
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', end);
+    el.addEventListener('mouseleave', end);
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  };
+
+  bindTouch('btnTouchUp', 'up');
+  bindTouch('btnTouchDown', 'down');
+  bindTouch('btnTouchLeft', 'left');
+  bindTouch('btnTouchRight', 'right');
+  bindTouch('btnTouchNitro', 'nitro');
+}
+
+// Podium Result Handler
+window.renderPodium = function(leaderboard) {
+  if (!leaderboard || !leaderboard.length) return;
+  podiumModal.style.display = 'flex';
+  podiumList.innerHTML = leaderboard.map(item => `
+    <div class="podium-item ${item.rank === 1 ? 'first' : ''}">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <strong style="font-size: 18px; color: ${item.rank === 1 ? '#ffd700' : '#fff'}">#${item.rank}</strong>
+        <span style="font-weight: 700; color: ${item.color || '#fff'}">${item.name}</span>
+      </div>
+      <span style="font-size: 13px; color: var(--text-muted);">${(item.timeMs / 1000).toFixed(2)}s</span>
+    </div>
+  `).join('');
+};
+
+btnClosePodium.addEventListener('click', () => {
+  podiumModal.style.display = 'none';
+});
+
+// Initialize on start
+initColorPickers();
