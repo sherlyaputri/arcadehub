@@ -2525,7 +2525,7 @@ class RacingGame3D {
     if (inWater) {
       // 🌊 Water Splash & Deep Riverbed
       if (!this.keys.nitro) {
-        topSpeed = 1.05;
+        topSpeed = phys.maxSpeed * 0.85;
       }
       phys.turnSpeed = 0.027;
       if (Math.abs(s.speed) > 0.16) {
@@ -2541,7 +2541,7 @@ class RacingGame3D {
     } else if (inGravel) {
       // 🪨 Gravel Ridge: Bebatuan & Chassis Shudder
       if (!this.keys.nitro) {
-        topSpeed = 1.10;
+        topSpeed = phys.maxSpeed * 0.88;
       }
       phys.turnSpeed = 0.028;
       if (Math.abs(s.speed) > 0.18) {
@@ -2563,7 +2563,7 @@ class RacingGame3D {
     } else if (inSand) {
       // 🏜️ Sand Dunes Drift
       if (!this.keys.nitro) {
-        topSpeed = 1.12;
+        topSpeed = phys.maxSpeed * 0.90;
       }
       phys.turnSpeed = 0.030;
       if (Math.abs(s.speed) > 0.20) {
