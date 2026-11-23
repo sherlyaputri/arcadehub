@@ -253,6 +253,7 @@ function renderLobby() {
   const isHost = currentRoom.hostId === selfId;
   const gameNames = {
     racing: '🚜 Mining Rally 3D (Balap Tambang & Konstruksi)',
+    sambungkata: '🔤 Sambung Kata 3D (Roblox Style)',
     quiz: '🧠 Quiz Trivia Showdown',
     territory: '⚔️ Territory Conquest (Perebutan Wilayah)',
     tictactoe: '⚔️ Territory Conquest (Perebutan Wilayah)'
@@ -369,6 +370,11 @@ function launchGame(gameId) {
       activeGameInstance = new window.TicTacToeGame(domGameContainer, socket, currentRoom, selfId);
     }
 
+  } else if (gameId === 'sambungkata') {
+    arenaGameTitle.textContent = '🔤 Sambung Kata 3D (Roblox Style)';
+    if (window.SambungKataGame3D) {
+      activeGameInstance = new window.SambungKataGame3D(arenaViewport, socket, currentRoom, selfId);
+    }
   } else if (gameId === 'quiz') {
     arenaGameTitle.textContent = '🧠 Quiz Trivia Showdown';
     domGameContainer.style.display = 'flex';

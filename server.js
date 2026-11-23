@@ -22,6 +22,7 @@ const AVAILABLE_GAMES = [
   { id: 'racing', name: '🚜 Mining Rally 3D (Balap Tambang & Konstruksi)', minPlayers: 1, maxPlayers: 8 },
   { id: 'quiz', name: '🧠 Quiz Trivia Showdown', minPlayers: 1, maxPlayers: 12 },
   { id: 'territory', name: '⚔️ Territory Conquest (Perebutan Wilayah)', minPlayers: 2, maxPlayers: 2 },
+  { id: 'sambungkata', name: '🔤 Sambung Kata 3D (Roblox Style)', minPlayers: 1, maxPlayers: 8 },
   { id: 'tictactoe', name: '⚔️ Territory Conquest (Perebutan Wilayah)', minPlayers: 2, maxPlayers: 2 }
 ];
 
@@ -34,6 +35,112 @@ function generateRoomCode() {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return rooms[code] ? generateRoomCode() : code;
+}
+
+// =================== SAMBUNG KATA 3D HELPERS ===================
+const SK_SYLLABLES = [
+  'NJ', 'TL', 'NG', 'MB', 'PR', 'ST', 'TR', 'NY', 'PL', 'KT',
+  'MP', 'RT', 'KS', 'SK', 'BL', 'DR', 'GL', 'BR', 'KL', 'KR',
+  'MA', 'KA', 'SA', 'TA', 'BA', 'LA', 'RA', 'DA', 'PA', 'GA',
+  'LI', 'TI', 'SI', 'MI', 'KI', 'RI', 'PI', 'DI', 'BI', 'GI',
+  'AN', 'IN', 'UN', 'AR', 'ER', 'OR', 'AL', 'EL', 'AS', 'IS'
+];
+
+function initSambungKataGame(room) {
+  if (room.skInterval) clearInterval(room.skInterval);
+
+  const playerIds = Object.keys(room.players);
+  const playerData = {};
+  playerIds.forEach(id => {
+    playerData[id] = {
+      id,
+      name: room.players[id].name,
+      color: room.players[id].color,
+      lives: 3,
+      score: 0,
+      isAlive: true
+    };
+  });
+
+  const firstPrompt = SK_SYLLABLES[Math.floor(Math.random() * SK_SYLLABLES.length)];
+
+  room.gameData = {
+    turnIndex: 0,
+    currentTurnId: playerIds[0],
+    prompt: firstPrompt,
+    mode: 'syllable',
+    timeLeft: 15,
+    usedWords: [],
+    lastWord: '',
+    playerData,
+    winner: null,
+    status: 'playing',
+    history: [`🎮 Game Dimulai! Giliran ${playerData[playerIds[0]]?.name} (Kombinasi: "${firstPrompt}")`]
+  };
+
+  startSambungKataTimer(room);
+}
+
+function startSambungKataTimer(room) {
+  if (room.skInterval) clearInterval(room.skInterval);
+  room.skInterval = setInterval(() => {
+    const gd = room.gameData;
+    if (!gd || gd.status !== 'playing') {
+      clearInterval(room.skInterval);
+      return;
+    }
+
+    gd.timeLeft--;
+    io.to(room.id).emit('sambungkata:update', gd);
+
+    if (gd.timeLeft <= 0) {
+      const currP = gd.playerData[gd.currentTurnId];
+      if (currP) {
+        currP.lives--;
+        io.to(room.id).emit('sambungkata:timeout', {
+          playerId: gd.currentTurnId,
+          remainingLives: currP.lives
+        });
+        if (currP.lives <= 0) {
+          currP.isAlive = false;
+        }
+      }
+      advanceSambungKataTurn(room);
+    }
+  }, 1000);
+}
+
+function advanceSambungKataTurn(room) {
+  const gd = room.gameData;
+  if (!gd) return;
+
+  const playerIds = Object.keys(gd.playerData);
+  const alivePlayers = playerIds.filter(id => gd.playerData[id].lives > 0);
+
+  if (alivePlayers.length <= 1 && playerIds.length > 1) {
+    gd.status = 'finished';
+    gd.winner = alivePlayers[0] ? gd.playerData[alivePlayers[0]] : null;
+    if (room.skInterval) clearInterval(room.skInterval);
+    io.to(room.id).emit('sambungkata:update', gd);
+    return;
+  }
+
+  // Next alive player
+  let nextIdx = (gd.turnIndex + 1) % playerIds.length;
+  for (let i = 0; i < playerIds.length; i++) {
+    const candidateId = playerIds[(nextIdx + i) % playerIds.length];
+    if (gd.playerData[candidateId].lives > 0) {
+      nextIdx = (nextIdx + i) % playerIds.length;
+      break;
+    }
+  }
+
+  gd.turnIndex = nextIdx;
+  gd.currentTurnId = playerIds[nextIdx];
+  gd.timeLeft = 15;
+  gd.prompt = SK_SYLLABLES[Math.floor(Math.random() * SK_SYLLABLES.length)];
+
+  io.to(room.id).emit('sambungkata:update', gd);
 }
 
 io.on('connection', (socket) => {
@@ -141,10 +248,14 @@ io.on('connection', (socket) => {
     if (room.hostId !== socket.id) return;
 
     room.state = 'playing';
-    room.gameData = {
-      startTime: Date.now(),
-      leaderboard: []
-    };
+    if (room.game === 'sambungkata') {
+      initSambungKataGame(room);
+    } else {
+      room.gameData = {
+        startTime: Date.now(),
+        leaderboard: []
+      };
+    }
 
     io.to(currentRoomId).emit('gameStarted', {
       game: room.game,
@@ -157,6 +268,11 @@ io.on('connection', (socket) => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
     if (room.hostId !== socket.id) return;
+
+    if (room.skInterval) {
+      clearInterval(room.skInterval);
+      room.skInterval = null;
+    }
 
     room.state = 'lobby';
     room.gameData = {};
@@ -649,6 +765,64 @@ io.on('connection', (socket) => {
     }
   });
 
+  // =================== SAMBUNG KATA 3D (ROBLOX STYLE) ===================
+  socket.on('sambungkata:ready', () => {
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    if (room.game === 'sambungkata' && room.gameData) {
+      socket.emit('sambungkata:update', room.gameData);
+    }
+  });
+
+  socket.on('sambungkata:submit', ({ word }) => {
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    if (room.game !== 'sambungkata' || !room.gameData) return;
+    const gd = room.gameData;
+    if (gd.currentTurnId !== socket.id || gd.status !== 'playing') return;
+
+    const cleanWord = (word || '').trim().toUpperCase();
+    if (cleanWord.length < 2) {
+      return socket.emit('sambungkata:invalid', 'Kata terlalu pendek!');
+    }
+
+    if (!/^[A-Z]+$/.test(cleanWord)) {
+      return socket.emit('sambungkata:invalid', 'Hanya boleh berisi huruf!');
+    }
+
+    if (gd.usedWords.includes(cleanWord)) {
+      return socket.emit('sambungkata:invalid', `Kata "${cleanWord}" sudah pernah digunakan!`);
+    }
+
+    if (!cleanWord.includes(gd.prompt)) {
+      return socket.emit('sambungkata:invalid', `Kata harus mengandung huruf "${gd.prompt}"!`);
+    }
+
+    // Word is accepted!
+    gd.usedWords.push(cleanWord);
+    gd.lastWord = cleanWord;
+    const p = gd.playerData[socket.id];
+    if (p) {
+      const earned = 100 + (gd.timeLeft * 10) + (cleanWord.length * 15);
+      p.score += earned;
+    }
+
+    io.to(currentRoomId).emit('sambungkata:wordAccepted', {
+      playerId: socket.id,
+      word: cleanWord,
+      score: p ? p.score : 0
+    });
+
+    advanceSambungKataTurn(room);
+  });
+
+  socket.on('sambungkata:restart', () => {
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    initSambungKataGame(room);
+    io.to(currentRoomId).emit('sambungkata:update', room.gameData);
+  });
+
   // =================== DISCONNECT ===================
   socket.on('disconnect', () => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
@@ -658,6 +832,7 @@ io.on('connection', (socket) => {
     const remainingPlayers = Object.keys(room.players);
 
     if (remainingPlayers.length === 0) {
+      if (room.skInterval) clearInterval(room.skInterval);
       delete rooms[currentRoomId];
     } else {
       // If host left, transfer host
