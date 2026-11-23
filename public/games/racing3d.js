@@ -79,15 +79,15 @@ class RacingGame3D {
     this.startTime = 0;
     this.myFinishTime = 0;
 
-    // Physics parameters
+    // Physics parameters (Dikalibrasi pas: Normal 50 KM/H & Nitro 80 KM/H)
     this.physics = {
-      maxSpeed: 1.25,       // Top speed (~100-105 km/h) - lebih nyaman & terkendali
-      nitroSpeed: 1.85,     // Boost top speed (~155 km/h)
-      accel: 0.019,         // Akselerasi lebih halus & terkontrol
-      brake: 0.045,
-      reverseSpeed: -0.38,
-      friction: 0.982,
-      turnSpeed: 0.026,     // Bobot stir lebih mantap & terkontrol (tidak over-sensitif)
+      maxSpeed: 0.60,       // Top speed normal = 50 KM/H (Sangat terkendali & santai)
+      nitroSpeed: 0.96,     // Boost top speed = 80 KM/H
+      accel: 0.010,         // Akselerasi tarikan gas halus
+      brake: 0.035,         // Pengereman responsif
+      reverseSpeed: -0.22,  // Kecepatan mundur santai
+      friction: 0.985,      // Gesekan luncuran
+      turnSpeed: 0.026,     // Bobot kemudi stabil & tidak liar
       driftFriction: 0.94
     };
 
@@ -533,7 +533,7 @@ class RacingGame3D {
       // Jarak offset dihitung agar seluruh papan berdiri AMAN di luar guardrail (tidak pernah masuk jalur)
       const offsetDist = boardWidth / 2 + 1.8;
       const offsetPos = isLeft ? sample.left.clone().addScaledVector(sample.binormal, -offsetDist)
-                               : sample.right.clone().addScaledVector(sample.binormal, offsetDist);
+        : sample.right.clone().addScaledVector(sample.binormal, offsetDist);
 
       group.position.copy(offsetPos);
       group.position.y = sample.p.y;
@@ -2586,7 +2586,7 @@ class RacingGame3D {
 
     // Nitro handling
     s.isBoosting = false;
-    if (this.keys.nitro && s.nitro > 0 && s.speed > 0.4) {
+    if (this.keys.nitro && s.nitro > 0 && s.speed > 0.20) {
       s.isBoosting = true;
       topSpeed = phys.nitroSpeed;
       s.nitro = Math.max(0, s.nitro - 0.7);
@@ -2601,7 +2601,7 @@ class RacingGame3D {
     // Boost pads
     for (let bp of this.boostPads) {
       if (Math.hypot(s.pos.x - bp.pos.x, s.pos.z - bp.pos.z) < bp.radius) {
-        s.speed = Math.min(s.speed + 0.45, phys.nitroSpeed);
+        s.speed = Math.min(s.speed + 0.25, phys.nitroSpeed);
         if (window.soundManager) window.soundManager.boost();
       }
     }
@@ -2634,17 +2634,17 @@ class RacingGame3D {
     s.steerInput = (s.steerInput || 0) + (targetInput - (s.steerInput || 0)) * inputRate;
     if (Math.abs(s.steerInput) < 0.004 && targetInput === 0) s.steerInput = 0;
 
-    if (Math.abs(s.speed) > 0.05 && Math.abs(s.steerInput) > 0.005) {
+    if (Math.abs(s.speed) > 0.04 && Math.abs(s.steerInput) > 0.005) {
       const dir = s.speed > 0 ? 1 : -1;
       const speedMag = Math.abs(s.speed);
 
       // Speed-sensitive steering: mobil stabil di trek lurus berkecepatan tinggi, lincah di tikungan
       let speedFactor = 1.0;
-      if (speedMag < 0.35) {
-        speedFactor = speedMag / 0.35;
-      } else if (speedMag > 0.95) {
+      if (speedMag < 0.20) {
+        speedFactor = speedMag / 0.20;
+      } else if (speedMag > 0.55) {
         // Redam sedikit sensitivitas saat kencang agar mobil tidak membanting liar ke pembatas
-        speedFactor = Math.max(0.72, 1.0 - (speedMag - 0.95) * 0.30);
+        speedFactor = Math.max(0.72, 1.0 - (speedMag - 0.55) * 0.40);
       }
 
       const turnAmount = phys.turnSpeed * speedFactor * s.steerInput * dir;
@@ -2838,8 +2838,8 @@ class RacingGame3D {
       }
     }
 
-    // Update HUD
-    const speedKmh = Math.abs(Math.round(s.speed * 85));
+    // Update HUD (Kalibrasi Pas: Top Speed 50 KM/H, Nitro Boost 80 KM/H)
+    const speedKmh = Math.abs(Math.round(s.speed * 83.333));
     this.hudSpeedEl.innerHTML = `${speedKmh} <span style="font-size: 13px; color: #94a3b8;">KM/H</span>`;
     this.hudLapEl.textContent = `${Math.min(s.lap, this.totalLaps)} / ${this.totalLaps}`;
     this.hudNitroEl.style.width = `${s.nitro}%`;
