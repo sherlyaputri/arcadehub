@@ -71,9 +71,12 @@
     <section class="screen" id="screenLobby">
       <div class="lobby-main">
         <div class="game-select-card">
-          <div>
+          <div style="flex: 1;">
             <h3 style="font-size: 16px;">Game yang Dipilih</h3>
             <span id="currentGameLabel" style="color: var(--primary); font-weight: 800; font-size: 18px;">🚜 Mining Rally 3D (Balap Tambang)</span>
+            <div id="quizCategoryDisplay" style="display: none; margin-top: 6px; font-size: 14px; font-weight: 700; color: #a5b4fc;">
+              📚 Kategori: <span id="quizCategoryCurrentLabel">🌍 Pengetahuan Umum (10 Soal)</span>
+            </div>
           </div>
           <div id="hostGameSelector" style="display: none;">
             <select id="selectGame" class="select-game">
@@ -81,6 +84,17 @@
               <option value="quiz">🧠 Quiz Trivia Showdown</option>
               <option value="territory">⚔️ Territory Conquest (Perebutan Wilayah)</option>
             </select>
+            <div id="hostQuizCategoryWrap" style="display: none; margin-top: 8px;">
+              <select id="selectQuizCategory" class="select-game" style="font-size: 13px; padding: 6px 10px; width: 100%;">
+                <option value="matematika">📐 Matematika (10 Soal)</option>
+                <option value="umum" selected>🌍 Pengetahuan Umum (10 Soal)</option>
+                <option value="kuliah">🎓 Tingkat Kuliah (10 Soal)</option>
+                <option value="smp">🎒 Tingkat SMP (10 Soal)</option>
+                <option value="sma">📚 Tingkat SMA (10 Soal)</option>
+                <option value="olahraga">⚽ Olahraga (10 Soal)</option>
+                <option value="teknologi">💻 Teknologi & Komputer (10 Soal)</option>
+              </select>
+            </div>
           </div>
         </div>
 

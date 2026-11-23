@@ -57,6 +57,7 @@ io.on('connection', (socket) => {
       id: roomId,
       hostId: socket.id,
       game: 'racing',
+      quizCategory: 'umum',
       state: 'lobby',
       players: { [socket.id]: player },
       gameData: {}
@@ -612,6 +613,14 @@ io.on('connection', (socket) => {
   });
 
   // =================== QUIZ SPECIFIC ===================
+  socket.on('quiz:setCategory', ({ category }) => {
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    if (room.hostId !== socket.id) return;
+    room.quizCategory = category;
+    io.to(currentRoomId).emit('quiz:categoryUpdated', { category });
+  });
+
   socket.on('quiz:answer', ({ questionIndex, answerIndex, timeLeft }) => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];

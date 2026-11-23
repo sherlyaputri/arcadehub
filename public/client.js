@@ -35,6 +35,10 @@ const btnJoinRoom = document.getElementById('btnJoinRoom');
 const currentGameLabel = document.getElementById('currentGameLabel');
 const hostGameSelector = document.getElementById('hostGameSelector');
 const selectGame = document.getElementById('selectGame');
+const quizCategoryDisplay = document.getElementById('quizCategoryDisplay');
+const quizCategoryCurrentLabel = document.getElementById('quizCategoryCurrentLabel');
+const hostQuizCategoryWrap = document.getElementById('hostQuizCategoryWrap');
+const selectQuizCategory = document.getElementById('selectQuizCategory');
 const playersList = document.getElementById('playersList');
 const playerCount = document.getElementById('playerCount');
 const btnCopyRoomLink = document.getElementById('btnCopyRoomLink');
@@ -135,6 +139,13 @@ selectGame.addEventListener('change', () => {
   socket.emit('changeGame', newGame);
 });
 
+if (selectQuizCategory) {
+  selectQuizCategory.addEventListener('change', () => {
+    const newCat = selectQuizCategory.value;
+    socket.emit('quiz:setCategory', { category: newCat });
+  });
+}
+
 btnToggleReady.addEventListener('click', () => {
   if (window.soundManager) window.soundManager.click();
   socket.emit('toggleReady');
@@ -208,6 +219,13 @@ socket.on('gameChanged', ({ game, room }) => {
   if (window.soundManager) window.soundManager.click();
 });
 
+socket.on('quiz:categoryUpdated', ({ category }) => {
+  if (currentRoom) {
+    currentRoom.quizCategory = category;
+    renderLobby();
+  }
+});
+
 socket.on('chatMessage', (msg) => {
   addChatMessage(msg);
 });
@@ -240,9 +258,35 @@ function renderLobby() {
     tictactoe: '⚔️ Territory Conquest (Perebutan Wilayah)'
   };
 
+  const categoryTitles = {
+    matematika: '📐 Matematika (10 Soal)',
+    umum: '🌍 Pengetahuan Umum (10 Soal)',
+    kuliah: '🎓 Tingkat Kuliah (10 Soal)',
+    smp: '🎒 Tingkat SMP (10 Soal)',
+    sma: '📚 Tingkat SMA (10 Soal)',
+    olahraga: '⚽ Olahraga (10 Soal)',
+    teknologi: '💻 Teknologi & Komputer (10 Soal)'
+  };
+
   currentGameLabel.textContent = gameNames[currentRoom.game] || currentRoom.game;
   hostGameSelector.style.display = isHost ? 'block' : 'none';
   selectGame.value = currentRoom.game;
+
+  // Quiz category visibility & sync
+  const isQuiz = currentRoom.game === 'quiz';
+  if (quizCategoryDisplay) {
+    quizCategoryDisplay.style.display = isQuiz ? 'block' : 'none';
+    const currentCat = currentRoom.quizCategory || 'umum';
+    if (quizCategoryCurrentLabel) {
+      quizCategoryCurrentLabel.textContent = categoryTitles[currentCat] || currentCat;
+    }
+  }
+  if (hostQuizCategoryWrap) {
+    hostQuizCategoryWrap.style.display = (isQuiz && isHost) ? 'block' : 'none';
+    if (selectQuizCategory) {
+      selectQuizCategory.value = currentRoom.quizCategory || 'umum';
+    }
+  }
 
   const playersArr = Object.values(currentRoom.players);
   playerCount.textContent = playersArr.length;
