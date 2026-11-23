@@ -38,12 +38,12 @@ function generateRoomCode() {
 }
 
 // =================== SAMBUNG KATA 3D HELPERS ===================
-const SK_SYLLABLES = [
-  'NJ', 'TL', 'NG', 'MB', 'PR', 'ST', 'TR', 'NY', 'PL', 'KT',
-  'MP', 'RT', 'KS', 'SK', 'BL', 'DR', 'GL', 'BR', 'KL', 'KR',
-  'MA', 'KA', 'SA', 'TA', 'BA', 'LA', 'RA', 'DA', 'PA', 'GA',
-  'LI', 'TI', 'SI', 'MI', 'KI', 'RI', 'PI', 'DI', 'BI', 'GI',
-  'AN', 'IN', 'UN', 'AR', 'ER', 'OR', 'AL', 'EL', 'AS', 'IS'
+const SK_STARTING_SYLLABLES = [
+  'AN', 'BA', 'CA', 'DA', 'GA', 'HA', 'JA', 'KA', 'LA', 'MA',
+  'PA', 'RA', 'SA', 'TA', 'BE', 'DE', 'GE', 'KE', 'ME', 'PE',
+  'SE', 'TE', 'BI', 'DI', 'GI', 'LI', 'MI', 'PI', 'SI', 'TI',
+  'BO', 'DO', 'GO', 'KO', 'PO', 'RO', 'TO', 'BU', 'DU', 'GU',
+  'KU', 'LU', 'MU', 'PU', 'RU', 'SU', 'TU'
 ];
 
 function initSambungKataGame(room) {
@@ -62,20 +62,20 @@ function initSambungKataGame(room) {
     };
   });
 
-  const firstPrompt = SK_SYLLABLES[Math.floor(Math.random() * SK_SYLLABLES.length)];
+  const firstPrompt = SK_STARTING_SYLLABLES[Math.floor(Math.random() * SK_STARTING_SYLLABLES.length)];
 
   room.gameData = {
     turnIndex: 0,
     currentTurnId: playerIds[0],
     prompt: firstPrompt,
-    mode: 'syllable',
+    mode: 'chain2',
     timeLeft: 15,
     usedWords: [],
     lastWord: '',
     playerData,
     winner: null,
     status: 'playing',
-    history: [`🎮 Game Dimulai! Giliran ${playerData[playerIds[0]]?.name} (Kombinasi: "${firstPrompt}")`]
+    history: [`🎮 Game Dimulai! Giliran ${playerData[playerIds[0]]?.name} (Awalan: "${firstPrompt}")`]
   };
 
   startSambungKataTimer(room);
@@ -105,12 +105,13 @@ function startSambungKataTimer(room) {
           currP.isAlive = false;
         }
       }
-      advanceSambungKataTurn(room);
+      // Saat timeout, pilih awalan baru agar permainan tidak macet
+      advanceSambungKataTurn(room, null);
     }
   }, 1000);
 }
 
-function advanceSambungKataTurn(room) {
+function advanceSambungKataTurn(room, nextPrompt = null) {
   const gd = room.gameData;
   if (!gd) return;
 
@@ -138,7 +139,17 @@ function advanceSambungKataTurn(room) {
   gd.turnIndex = nextIdx;
   gd.currentTurnId = playerIds[nextIdx];
   gd.timeLeft = 15;
-  gd.prompt = SK_SYLLABLES[Math.floor(Math.random() * SK_SYLLABLES.length)];
+
+  // Jika ada nextPrompt dari 2 huruf akhir kata pemain sebelumnya, gunakan itu!
+  if (nextPrompt && nextPrompt.length === 2) {
+    gd.prompt = nextPrompt;
+  } else {
+    gd.prompt = SK_STARTING_SYLLABLES[Math.floor(Math.random() * SK_STARTING_SYLLABLES.length)];
+  }
+
+  const pName = gd.playerData[gd.currentTurnId]?.name || 'Pemain';
+  gd.history.unshift(`👉 Giliran ${pName}! Awalan 2 huruf: "${gd.prompt}"`);
+  if (gd.history.length > 25) gd.history.pop();
 
   io.to(room.id).emit('sambungkata:update', gd);
 }
@@ -782,8 +793,8 @@ io.on('connection', (socket) => {
     if (gd.currentTurnId !== socket.id || gd.status !== 'playing') return;
 
     const cleanWord = (word || '').trim().toUpperCase();
-    if (cleanWord.length < 2) {
-      return socket.emit('sambungkata:invalid', 'Kata terlalu pendek!');
+    if (cleanWord.length < 3) {
+      return socket.emit('sambungkata:invalid', 'Kata minimal 3 huruf!');
     }
 
     if (!/^[A-Z]+$/.test(cleanWord)) {
@@ -794,9 +805,13 @@ io.on('connection', (socket) => {
       return socket.emit('sambungkata:invalid', `Kata "${cleanWord}" sudah pernah digunakan!`);
     }
 
-    if (!cleanWord.includes(gd.prompt)) {
-      return socket.emit('sambungkata:invalid', `Kata harus mengandung huruf "${gd.prompt}"!`);
+    // ATURAN RESMI: Kata HARUS BERAWALAN dengan 2 huruf prompt di kartu!
+    if (!cleanWord.startsWith(gd.prompt)) {
+      return socket.emit('sambungkata:invalid', `Kata harus BERAWALAN dengan "${gd.prompt}"!`);
     }
+
+    // Ambil 2 huruf TERAKHIR dari kata ini untuk dioper ke pemain berikutnya!
+    const nextPrompt = cleanWord.slice(-2);
 
     // Word is accepted!
     gd.usedWords.push(cleanWord);
@@ -810,10 +825,11 @@ io.on('connection', (socket) => {
     io.to(currentRoomId).emit('sambungkata:wordAccepted', {
       playerId: socket.id,
       word: cleanWord,
-      score: p ? p.score : 0
+      score: p ? p.score : 0,
+      nextPrompt
     });
 
-    advanceSambungKataTurn(room);
+    advanceSambungKataTurn(room, nextPrompt);
   });
 
   socket.on('sambungkata:restart', () => {

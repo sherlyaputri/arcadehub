@@ -576,9 +576,9 @@ class SambungKataGame3D {
 
         <div class="sk-center-prompt">
           <div style="font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">
-            🔤 Huruf yang Wajib Ada
+            🔤 2 Huruf Awalan Kata
           </div>
-          <div class="sk-prompt-letter" id="skPromptDisplay">NJ</div>
+          <div class="sk-prompt-letter" id="skPromptDisplay">AN</div>
           <div style="font-size: 13px; color: #38bdf8; font-weight: 700;" id="skTurnIndicator">
             Giliran Kamu!
           </div>
@@ -590,7 +590,7 @@ class SambungKataGame3D {
             <div class="sk-timer" id="skTimerDisplay">15s</div>
           </div>
           <div class="sk-history-box" id="skHistoryList">
-            <strong>Riwayat Kata:</strong>
+            <strong>Rantai Sambung Kata:</strong>
             <div id="skHistoryContent">Belum ada kata</div>
           </div>
         </div>
@@ -600,7 +600,7 @@ class SambungKataGame3D {
 
       <div class="sk-bottom-input-wrap">
         <form class="sk-input-form" id="skInputForm">
-          <input type="text" class="sk-input" id="skWordInput" placeholder="Ketik kata bahasa Indonesia yang ada huruf [NJ]..." autocomplete="off" />
+          <input type="text" class="sk-input" id="skWordInput" placeholder="Ketik kata berawalan [AN]... (misal: ANGGUR)" autocomplete="off" />
           <button type="submit" class="sk-btn-send" id="skBtnSend">KIRIM ↵</button>
         </form>
       </div>
@@ -714,13 +714,13 @@ class SambungKataGame3D {
       this.turnIndicatorEl.textContent = '👉 GILIRAN KAMU SEKARANG!';
       this.turnIndicatorEl.style.color = '#00ff88';
       this.inputEl.disabled = false;
-      this.inputEl.placeholder = `Ketik kata yang ada huruf [${s.prompt}]...`;
+      this.inputEl.placeholder = `Ketik kata berawalan [${s.prompt}]... (misal: ${s.prompt}...)`;
       this.inputEl.focus();
     } else {
-      this.turnIndicatorEl.textContent = `⏳ Giliran ${activePlayerName}...`;
+      this.turnIndicatorEl.textContent = `⏳ Giliran ${activePlayerName} (Awalan: ${s.prompt})...`;
       this.turnIndicatorEl.style.color = '#94a3b8';
       this.inputEl.disabled = true;
-      this.inputEl.placeholder = `Menunggu ${activePlayerName} menjawab...`;
+      this.inputEl.placeholder = `Menunggu ${activePlayerName} menjawab kata berawalan [${s.prompt}]...`;
     }
 
     // Timer
@@ -734,11 +734,12 @@ class SambungKataGame3D {
       this.timerEl.classList.remove('danger');
     }
 
-    // History
+    // History Rantai Kata
     if (s.usedWords && s.usedWords.length > 0) {
-      this.historyEl.innerHTML = s.usedWords.slice(-4).reverse().map(w => `
-        <div style="color: #38bdf8; font-weight: 700; margin-top: 2px;">• ${w}</div>
-      `).join('');
+      this.historyEl.innerHTML = s.usedWords.slice(-5).map((w) => {
+        const end2 = w.slice(-2);
+        return `<div style="color: #38bdf8; font-weight: 700; margin-top: 3px;">• ${w} <span style="color: #facc15;">➔ [${end2}]</span></div>`;
+      }).reverse().join('');
     } else {
       this.historyEl.textContent = 'Belum ada kata';
     }
