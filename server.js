@@ -126,14 +126,14 @@ function startSambungKataTimer(room) {
     if (gd.timeLeft <= 0) {
       const currP = gd.playerData[gd.currentTurnId];
       if (currP) {
-        currP.lives--;
+        currP.lives = Math.max(0, currP.lives - 1);
+        if (currP.lives <= 0) {
+          currP.isAlive = false;
+        }
         io.to(room.id).emit('sambungkata:timeout', {
           playerId: gd.currentTurnId,
           remainingLives: currP.lives
         });
-        if (currP.lives <= 0) {
-          currP.isAlive = false;
-        }
       }
       // Saat timeout, pilih awalan baru agar permainan tidak macet
       advanceSambungKataTurn(room, null);
@@ -150,12 +150,24 @@ function advanceSambungKataTurn(room, nextPrompt = null) {
   const playerIds = Object.keys(gd.playerData);
   const alivePlayers = playerIds.filter(id => gd.playerData[id].lives > 0);
 
-  if (alivePlayers.length <= 1 && playerIds.length > 1) {
-    gd.status = 'finished';
-    gd.winner = alivePlayers[0] ? gd.playerData[alivePlayers[0]] : null;
-    clearSkTimer(room.id);
-    io.to(room.id).emit('sambungkata:update', gd);
-    return;
+  // 1 Pemain (Solo Mode): Jika 3 nyawanya habis -> KALAH / GAME OVER
+  if (playerIds.length === 1) {
+    if (alivePlayers.length === 0) {
+      gd.status = 'finished';
+      gd.winner = null; // Kalah karena nyawa habis
+      clearSkTimer(room.id);
+      io.to(room.id).emit('sambungkata:update', gd);
+      return;
+    }
+  } else {
+    // 2 Pemain atau Lebih: Jika tersisa 1 atau 0 orang -> GAME SELESAI
+    if (alivePlayers.length <= 1) {
+      gd.status = 'finished';
+      gd.winner = alivePlayers.length === 1 ? gd.playerData[alivePlayers[0]] : null;
+      clearSkTimer(room.id);
+      io.to(room.id).emit('sambungkata:update', gd);
+      return;
+    }
   }
 
   // Next alive player

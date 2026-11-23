@@ -52,6 +52,14 @@ class SambungKataGame3D {
     this.camera.position.set(0, 3.4, 6.8);
     this.camera.lookAt(0, 2.7, 0);
 
+    // Orbit Controls & Auto Focus Target
+    this.orbitYaw = 0;
+    this.orbitPitch = 0;
+    this.orbitDist = 6.8;
+    this.focusTarget = new THREE.Vector3(0, 2.7, 0);
+    this.desiredFocusTarget = new THREE.Vector3(0, 2.7, 0);
+    this.setupCameraControls();
+
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setSize(this.width, this.height);
@@ -87,6 +95,65 @@ class SambungKataGame3D {
       this.renderer.setSize(this.width, this.height);
     };
     window.addEventListener('resize', this.resizeHandler);
+  }
+
+  // 🎮 Kontrol Kamera Geser / Orbit 360° & Zoom
+  setupCameraControls() {
+    this.isDragging = false;
+    this.prevMouseX = 0;
+    this.prevMouseY = 0;
+
+    const onPointerDown = (e) => {
+      // Abaikan jika klik form input, tombol, atau kartu HUD
+      if (e.target && (e.target.closest('#skInputForm') || e.target.closest('button') || e.target.closest('input'))) return;
+      this.isDragging = true;
+      this.prevMouseX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX) || 0;
+      this.prevMouseY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0].clientY) || 0;
+    };
+
+    const onPointerMove = (e) => {
+      if (!this.isDragging) return;
+      const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX) || 0;
+      const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0].clientY) || 0;
+      const dx = clientX - this.prevMouseX;
+      const dy = clientY - this.prevMouseY;
+
+      // Geser sudut pandang horizontal (Yaw) & vertikal (Pitch)
+      this.orbitYaw -= dx * 0.007;
+      this.orbitPitch = Math.max(-0.45, Math.min(0.65, this.orbitPitch + dy * 0.006));
+
+      this.prevMouseX = clientX;
+      this.prevMouseY = clientY;
+    };
+
+    const onPointerUp = () => {
+      this.isDragging = false;
+    };
+
+    const onWheel = (e) => {
+      // Zoom in / zoom out kamera
+      this.orbitDist = Math.max(3.8, Math.min(14.0, this.orbitDist + e.deltaY * 0.008));
+    };
+
+    this.container.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    this.container.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp);
+
+    this.container.addEventListener('wheel', onWheel, { passive: true });
+
+    this.cleanupCameraControls = () => {
+      this.container.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('mousemove', onPointerMove);
+      window.removeEventListener('mouseup', onPointerUp);
+      this.container.removeEventListener('touchstart', onPointerDown);
+      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('touchend', onPointerUp);
+      this.container.removeEventListener('wheel', onWheel);
+    };
   }
 
   buildStageEnvironment() {
@@ -703,10 +770,15 @@ class SambungKataGame3D {
       <div class="sk-feedback-msg" id="skFeedbackMsg">Kata tidak valid!</div>
 
       <div class="sk-bottom-input-wrap">
-        <form class="sk-input-form" id="skInputForm">
-          <input type="text" class="sk-input" id="skWordInput" placeholder="Ketik kata berawalan [AN]... (misal: ANGGUR)" autocomplete="off" />
-          <button type="submit" class="sk-btn-send" id="skBtnSend">KIRIM ↵</button>
-        </form>
+        <div style="display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 600px; gap: 6px;">
+          <form class="sk-input-form" id="skInputForm">
+            <input type="text" class="sk-input" id="skWordInput" placeholder="Ketik kata berawalan [AN]... (misal: ANGGUR)" autocomplete="off" />
+            <button type="submit" class="sk-btn-send" id="skBtnSend">KIRIM ↵</button>
+          </form>
+          <div style="font-size: 11px; font-weight: 700; color: #cbd5e1; text-shadow: 0 1px 3px rgba(0,0,0,0.8); background: rgba(15,23,42,0.6); padding: 3px 14px; border-radius: 12px;">
+            🎥 Geser mouse / layar untuk putar kamera 360° | Scroll untuk Zoom
+          </div>
+        </div>
       </div>
     `;
 
@@ -761,10 +833,12 @@ class SambungKataGame3D {
         av.bubbleSprite.scale.set(isCurrentTurn ? 3.9 : 3.2, isCurrentTurn ? 3.9 : 3.2, 1);
       });
 
-      // Fokus kamera ke pemain yang sedang mendapat giliran
+      // Auto fokus kamera ke pemain yang sedang mendapat giliran (Auto Camera Switch)
       const activeAv = this.avatars[state.currentTurnId];
       if (activeAv) {
-        this.targetCameraX = activeAv.root.position.x * 0.7;
+        this.desiredFocusTarget.set(activeAv.root.position.x, 2.7, activeAv.root.position.z);
+        // Reset yaw sehingga kamera otomatis menatap lurus pemain yang aktif
+        this.orbitYaw = 0;
       }
     };
 
@@ -803,10 +877,11 @@ class SambungKataGame3D {
     const s = this.gameState;
     const myData = s.playerData[this.selfId] || { lives: 3, score: 0 };
 
-    // Lives display
+    // Lives display (Maksimal dan selalu dikunci tepat 3 nyawa)
+    const currentLives = Math.max(0, Math.min(3, myData.lives ?? 3));
     let hearts = '';
-    for (let i = 0; i < myData.lives; i++) hearts += '❤️';
-    for (let i = myData.lives; i < 3; i++) hearts += '🖤';
+    for (let i = 0; i < currentLives; i++) hearts += '❤️';
+    for (let i = currentLives; i < 3; i++) hearts += '🖤';
     this.livesEl.textContent = hearts;
     this.scoreEl.textContent = `Skor: ${myData.score} Poin`;
 
@@ -849,8 +924,8 @@ class SambungKataGame3D {
       this.historyEl.textContent = 'Belum ada kata';
     }
 
-    // Winner celebration
-    if (s.status === 'finished' && s.winner) {
+    // Winner celebration / Game Over
+    if (s.status === 'finished') {
       this.showWinnerModal(s.winner);
     }
   }
@@ -858,28 +933,54 @@ class SambungKataGame3D {
   showWinnerModal(winner) {
     if (this.winnerShown) return;
     this.winnerShown = true;
-    if (window.soundManager) window.soundManager.winFanfare();
 
-    const isMe = winner.id === this.selfId;
+    const isMe = winner && winner.id === this.selfId;
+    const isGameOver = !winner; // Solo kalah atau semua tereliminasi
+
+    if (isGameOver) {
+      if (window.soundManager) window.soundManager.playBeep(160, 0.5, 'sawtooth');
+    } else {
+      if (window.soundManager) window.soundManager.winFanfare();
+    }
+
     const modal = document.createElement('div');
     modal.style = `
       position: absolute;
       inset: 0;
-      background: rgba(15, 23, 42, 0.88);
+      background: rgba(15, 23, 42, 0.90);
+      backdrop-filter: blur(8px);
       display: flex;
       justify-content: center;
       align-items: center;
       z-index: 50;
       padding: 20px;
     `;
+
+    let icon = '🏆';
+    let title = 'SELAMAT, KAMU JUARA!';
+    let subtitle = winner ? winner.name : '';
+    let desc = 'Bertahan sebagai pemain terakhir dengan perbendaharaan kata terbanyak!';
+
+    if (isGameOver) {
+      icon = '💀';
+      title = 'GAME OVER!';
+      subtitle = 'Nyawa Kamu Telah Habis';
+      desc = '3 nyawamu telah habis karena kehabisan waktu. Asah kembali perbendaharaan katamu dan coba lagi!';
+    } else if (!isMe) {
+      icon = '👑';
+      title = 'PEMENANG SAMBUNG KATA!';
+      subtitle = winner.name;
+      desc = 'Pemain ini berhasil bertahan sampai akhir!';
+    }
+
     modal.innerHTML = `
-      <div style="background: #1e293b; border: 3px solid #f59e0b; border-radius: 24px; padding: 36px 28px; text-align: center; max-width: 450px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.8); color: #fff;">
-        <div style="font-size: 64px; margin-bottom: 12px;">🏆</div>
-        <h2 style="font-size: 28px; font-weight: 900; margin-bottom: 8px;">${isMe ? 'SELAMAT, KAMU JUARA!' : 'PEMENANG SAMBUNG KATA!'}</h2>
-        <div style="font-size: 20px; font-weight: 800; color: #fbbf24; margin-bottom: 16px;">${winner.name}</div>
-        <p style="color: #94a3b8; font-size: 14px; margin-bottom: 24px;">Bertahan sebagai pemain terakhir dengan perbendaharaan kata terbanyak!</p>
-        <button class="btn btn-primary" id="btnRestartSK" style="padding: 12px 28px; font-size: 16px; font-weight: 800; border-radius: 30px;">
-          🔄 Main Ronde Berikutnya
+      <div style="background: #1e293b; border: 3px solid ${isGameOver ? '#ef4444' : '#f59e0b'}; border-radius: 24px; padding: 36px 28px; text-align: center; max-width: 450px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.8); color: #fff;">
+        <div style="font-size: 64px; margin-bottom: 12px;">${icon}</div>
+        <h2 style="font-size: 28px; font-weight: 900; margin-bottom: 8px; color: ${isGameOver ? '#ef4444' : '#f59e0b'};">${title}</h2>
+        <div style="font-size: 20px; font-weight: 800; color: #fbbf24; margin-bottom: 16px;">${subtitle}</div>
+        <p style="color: #94a3b8; font-size: 14px; margin-bottom: 24px;">${desc}</p>
+        <button class="btn btn-primary" id="btnRestartSK" style="padding: 12px 28px; font-size: 16px; font-weight: 800; border-radius: 30px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; cursor: pointer; color: #0f172a;">
+          🔄 ${isGameOver ? 'Main Lagi (Reset)' : 'Main Ronde Berikutnya'}
         </button>
       </div>
     `;
@@ -902,11 +1003,21 @@ class SambungKataGame3D {
     const delta = this.clock.getDelta();
     const time = this.clock.getElapsedTime();
 
-    // Kamera smooth panning ke pemain yang sedang jalan
-    if (this.targetCameraX !== undefined) {
-      this.camera.position.x += (this.targetCameraX - this.camera.position.x) * 0.08;
-      this.camera.lookAt(this.camera.position.x * 0.6, 2.0, 0);
-    }
+    // 🎥 Kamera Auto-Switch Smooth ke Pemain Aktif
+    this.focusTarget.lerp(this.desiredFocusTarget, 0.08);
+
+    // 🎥 Kamera Orbit 360° yang bisa digeser-geser user
+    const cosPitch = Math.cos(this.orbitPitch);
+    const sinPitch = Math.sin(this.orbitPitch);
+    const sinYaw = Math.sin(this.orbitYaw);
+    const cosYaw = Math.cos(this.orbitYaw);
+
+    const camX = this.focusTarget.x + this.orbitDist * cosPitch * sinYaw;
+    const camY = this.focusTarget.y + this.orbitDist * sinPitch + 0.7;
+    const camZ = this.focusTarget.z + this.orbitDist * cosPitch * cosYaw;
+
+    this.camera.position.set(camX, camY, camZ);
+    this.camera.lookAt(this.focusTarget);
 
     // Animasi Avatar Roblox
     Object.keys(this.avatars).forEach(id => {
@@ -956,6 +1067,9 @@ class SambungKataGame3D {
   destroy() {
     this.active = false;
     window.removeEventListener('resize', this.resizeHandler);
+    if (this.cleanupCameraControls) {
+      this.cleanupCameraControls();
+    }
     if (this.socket) {
       this.socket.off('sambungkata:update', this.onStateUpdate);
       this.socket.off('sambungkata:wordAccepted', this.onWordAccepted);
