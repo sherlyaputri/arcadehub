@@ -87,7 +87,7 @@ class RacingGame3D {
       brake: 0.045,
       reverseSpeed: -0.38,
       friction: 0.982,
-      turnSpeed: 0.042,
+      turnSpeed: 0.026,     // Bobot stir lebih mantap & terkontrol (tidak over-sensitif)
       driftFriction: 0.94
     };
 
@@ -1571,6 +1571,7 @@ class RacingGame3D {
       pitch: 0,
       speed: 0,
       steerAngle: 0,
+      steerInput: 0,
       nitro: 100,
       isBoosting: false,
       lap: 1,
@@ -2526,7 +2527,7 @@ class RacingGame3D {
       if (!this.keys.nitro) {
         topSpeed = 1.05;
       }
-      phys.turnSpeed = 0.042;
+      phys.turnSpeed = 0.027;
       if (Math.abs(s.speed) > 0.16) {
         this.spawnWaterSplash(s, closestSample.binormal);
         this.addScreenWaterDrops(s.isBoosting ? 4 : 2);
@@ -2542,7 +2543,7 @@ class RacingGame3D {
       if (!this.keys.nitro) {
         topSpeed = 1.10;
       }
-      phys.turnSpeed = 0.044;
+      phys.turnSpeed = 0.028;
       if (Math.abs(s.speed) > 0.18) {
         if (Math.random() < 0.28) {
           this.spawnGravelParticle(s.pos.x, s.pos.y, s.pos.z, s.angle, s.speed);
@@ -2550,7 +2551,7 @@ class RacingGame3D {
         // Chassis rumble / subtle suspension jitter over rocks
         const rumble = (Math.sin(Date.now() * 0.08) * 0.035 + (Math.random() - 0.5) * 0.02) * Math.min(1.0, Math.abs(s.speed));
         this.carObj.bodyGroup.position.y = rumble;
-        this.carObj.bodyGroup.rotation.z = -s.steerAngle * 0.22 + (Math.random() - 0.5) * 0.02 * s.speed;
+        this.carObj.bodyGroup.rotation.z = -s.steerAngle * 0.18 + (Math.random() - 0.5) * 0.02 * s.speed;
 
         if (Math.random() < 0.22 && window.soundManager) window.soundManager.gravelCrunch();
         if (navigator.vibrate && Math.random() < 0.15) navigator.vibrate(12);
@@ -2564,7 +2565,7 @@ class RacingGame3D {
       if (!this.keys.nitro) {
         topSpeed = 1.12;
       }
-      phys.turnSpeed = 0.046;
+      phys.turnSpeed = 0.030;
       if (Math.abs(s.speed) > 0.20) {
         this.spawnDustParticle(s.pos.x, s.pos.y, s.pos.z, true);
         if (Math.random() < 0.15 && window.soundManager) window.soundManager.skid();
@@ -2575,7 +2576,7 @@ class RacingGame3D {
       }
       this.carObj.bodyGroup.position.y = 0;
     } else {
-      phys.turnSpeed = 0.040;
+      phys.turnSpeed = 0.026;
       if (this.hudTerrainEl) {
         this.hudTerrainEl.textContent = '🏁 ASPAL';
         this.hudTerrainEl.style.color = '#00ff88';
@@ -2621,27 +2622,41 @@ class RacingGame3D {
       if (Math.abs(s.speed) < 0.005) s.speed = 0;
     }
 
-    // Steering
-    let targetSteer = 0;
-    if (Math.abs(s.speed) > 0.05) {
-      const dir = s.speed > 0 ? 1 : -1;
-      const turnEff = phys.turnSpeed * Math.min(1.2, Math.abs(s.speed) / 0.8);
+    // Steering (Progressive Input & Speed-Sensitive Stability agar stir berbobot & tidak over-sensitif)
+    let targetInput = 0;
+    if (this.keys.left) targetInput += 1;
+    if (this.keys.right) targetInput -= 1;
 
-      if (this.keys.left) {
-        s.angle += turnEff * dir;
-        targetSteer = 0.35;
+    // Gradual steering build-up (tekanan singkat = koreksi halus, tahan tombol = belok penuh)
+    const steerBuildRate = 0.14;
+    const steerReturnRate = 0.26;
+    const inputRate = (targetInput === 0) ? steerReturnRate : steerBuildRate;
+    s.steerInput = (s.steerInput || 0) + (targetInput - (s.steerInput || 0)) * inputRate;
+    if (Math.abs(s.steerInput) < 0.004 && targetInput === 0) s.steerInput = 0;
+
+    if (Math.abs(s.speed) > 0.05 && Math.abs(s.steerInput) > 0.005) {
+      const dir = s.speed > 0 ? 1 : -1;
+      const speedMag = Math.abs(s.speed);
+
+      // Speed-sensitive steering: mobil stabil di trek lurus berkecepatan tinggi, lincah di tikungan
+      let speedFactor = 1.0;
+      if (speedMag < 0.35) {
+        speedFactor = speedMag / 0.35;
+      } else if (speedMag > 0.95) {
+        // Redam sedikit sensitivitas saat kencang agar mobil tidak membanting liar ke pembatas
+        speedFactor = Math.max(0.72, 1.0 - (speedMag - 0.95) * 0.30);
       }
-      if (this.keys.right) {
-        s.angle -= turnEff * dir;
-        targetSteer = -0.35;
-      }
+
+      const turnAmount = phys.turnSpeed * speedFactor * s.steerInput * dir;
+      s.angle += turnAmount;
     }
 
-    s.steerAngle += (targetSteer - s.steerAngle) * 0.2;
+    const targetSteerAngle = s.steerInput * 0.28;
+    s.steerAngle += (targetSteerAngle - s.steerAngle) * 0.22;
     this.carObj.frontWheels.forEach(w => w.rotation.y = s.steerAngle);
     this.carObj.wheels.forEach(w => w.children[0].rotation.x += s.speed * 1.5);
     if (!inGravel) {
-      this.carObj.bodyGroup.rotation.z = -s.steerAngle * 0.22;
+      this.carObj.bodyGroup.rotation.z = -s.steerAngle * 0.18;
     }
 
     // Displacement
