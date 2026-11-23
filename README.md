@@ -1,3 +1,13 @@
+---
+title: Multi Game Hub
+emoji: 🎮
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 3000
+pinned: false
+---
+
 # 🕹️ ArcadeHub - Multi-Game Platform & Balap Mobil 3D Multiplayer
 
 Platform game web multiplayer real-time berbasis **Node.js**, **Express**, **Three.js (WebGL)**, dan **Socket.IO**. Menggunakan sistem **Room & Lobby** sehingga pemain bisa membuat room, mengundang teman menggunakan kode room, dan memilih beberapa variasi game untuk dimainkan bersama.
