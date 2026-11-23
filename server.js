@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,6 +14,21 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/three', express.static(path.join(__dirname, 'node_modules', 'three', 'build')));
+
+// Database Kamus Resmi KBBI (71.000+ Kosakata Bahasa Indonesia Baku & Sehari-hari)
+let KBBI_SET = new Set();
+let KBBI_PREFIX_SET = new Set();
+try {
+  const kbbiPath = path.join(__dirname, 'data', 'kbbi_words.json');
+  if (fs.existsSync(kbbiPath)) {
+    const rawWords = JSON.parse(fs.readFileSync(kbbiPath, 'utf8'));
+    KBBI_SET = new Set(rawWords);
+    KBBI_PREFIX_SET = new Set(rawWords.map(w => w.slice(0, 2)));
+    console.log(`📖 Berhasil memuat ${KBBI_SET.size} kosakata resmi KBBI untuk Sambung Kata 3D!`);
+  }
+} catch (err) {
+  console.error('Gagal memuat kamus KBBI:', err);
+}
 
 // Room storage
 // roomId -> { id, hostId, game: 'racing', state: 'lobby', players: {}, gameData: {} }
@@ -156,11 +172,14 @@ function advanceSambungKataTurn(room, nextPrompt = null) {
   gd.currentTurnId = playerIds[nextIdx];
   gd.timeLeft = 15;
 
-  // Jika ada nextPrompt dari 2 huruf akhir kata pemain sebelumnya, gunakan itu!
-  if (nextPrompt && nextPrompt.length === 2) {
+  // Jika ada nextPrompt dari 2 huruf akhir kata pemain sebelumnya dan ada kelanjutannya di KBBI, gunakan itu!
+  if (nextPrompt && nextPrompt.length === 2 && (KBBI_PREFIX_SET.size === 0 || KBBI_PREFIX_SET.has(nextPrompt))) {
     gd.prompt = nextPrompt;
   } else {
     gd.prompt = SK_STARTING_SYLLABLES[Math.floor(Math.random() * SK_STARTING_SYLLABLES.length)];
+    if (nextPrompt) {
+      gd.history.unshift(`⚠️ Akhiran [${nextPrompt}] tidak memiliki kata sambungan di KBBI. Huruf baru diacak: "${gd.prompt}"`);
+    }
   }
 
   const pName = gd.playerData[gd.currentTurnId]?.name || 'Pemain';
@@ -821,6 +840,11 @@ io.on('connection', (socket) => {
     // ATURAN RESMI: Kata HARUS BERAWALAN dengan 2 huruf prompt di kartu!
     if (!cleanWord.startsWith(gd.prompt)) {
       return socket.emit('sambungkata:invalid', `Kata harus BERAWALAN dengan "${gd.prompt}"!`);
+    }
+
+    // CEK VALIDASI KAMUS RESMI KBBI (Hanya kata baku & resmi yang diterima!)
+    if (KBBI_SET.size > 0 && !KBBI_SET.has(cleanWord)) {
+      return socket.emit('sambungkata:invalid', `Kata "${cleanWord}" tidak ditemukan dalam kamus resmi KBBI!`);
     }
 
     // Ambil 2 huruf TERAKHIR dari kata ini untuk dioper ke pemain berikutnya!
