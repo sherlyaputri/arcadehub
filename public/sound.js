@@ -3,16 +3,34 @@ class SoundManager {
   constructor() {
     this.ctx = null;
     this.muted = false;
+    this.bgmGain = null;
+    this.currentBgmType = null;
+    this.bgmTimer = null;
+    this.nextNoteTime = 0;
+    this.currentStep = 0;
   }
 
   init() {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+        this.bgmGain = this.ctx.createGain();
+        this.bgmGain.gain.setValueAtTime(this.muted ? 0 : 0.14, this.ctx.currentTime);
+        this.bgmGain.connect(this.ctx.destination);
+      }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.bgmGain && this.ctx) {
+      this.bgmGain.gain.setValueAtTime(this.muted ? 0 : 0.14, this.ctx.currentTime);
+    }
+    return this.muted;
   }
 
   playBeep(freq = 440, duration = 0.1, type = 'sine') {
@@ -285,6 +303,193 @@ class SoundManager {
   lapComplete() {
     this.playBeep(659.25, 0.1, 'sine');
     setTimeout(() => this.playBeep(880, 0.2, 'sine'), 100);
+  }
+
+  // ==================== BACKGROUND MUSIC (BGM) SYNTHESIZER ====================
+  playBGM(type = 'sambungkata') {
+    this.init();
+    if (!this.ctx) return;
+    if (this.currentBgmType === type && this.bgmTimer) return;
+    this.stopBGM();
+
+    this.currentBgmType = type;
+    this.currentStep = 0;
+    this.nextNoteTime = this.ctx.currentTime + 0.05;
+
+    const scheduler = () => {
+      if (!this.ctx || !this.currentBgmType) return;
+      while (this.nextNoteTime < this.ctx.currentTime + 0.15) {
+        this.scheduleBgmStep(this.currentBgmType, this.currentStep, this.nextNoteTime);
+        const bpm = this.getBgmBpm(this.currentBgmType);
+        const stepDuration = 60 / bpm / 4;
+        this.nextNoteTime += stepDuration;
+        this.currentStep = (this.currentStep + 1) % 64;
+      }
+    };
+
+    this.bgmTimer = setInterval(scheduler, 30);
+  }
+
+  stopBGM() {
+    if (this.bgmTimer) {
+      clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
+    this.currentBgmType = null;
+  }
+
+  getBgmBpm(type) {
+    if (type === 'racing') return 132;
+    if (type === 'quiz') return 108;
+    if (type === 'territory' || type === 'tictactoe') return 102;
+    return 116; // sambungkata
+  }
+
+  playSynthNote(freq, time, duration, type = 'sine', volume = 0.12, decay = true) {
+    if (!this.ctx || !this.bgmGain || freq <= 0) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, time);
+
+      gain.gain.setValueAtTime(volume, time);
+      if (decay) {
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+      } else {
+        gain.gain.setValueAtTime(volume, time + duration - 0.02);
+        gain.gain.linearRampToValueAtTime(0.0001, time + duration);
+      }
+
+      osc.connect(gain);
+      gain.connect(this.bgmGain);
+      osc.start(time);
+      osc.stop(time + duration);
+    } catch (e) {}
+  }
+
+  playDrumBeat(drumType, time) {
+    if (!this.ctx || !this.bgmGain) return;
+    try {
+      if (drumType === 'kick') {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, time);
+        osc.frequency.exponentialRampToValueAtTime(32, time + 0.12);
+        gain.gain.setValueAtTime(0.24, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+        osc.connect(gain);
+        gain.connect(this.bgmGain);
+        osc.start(time);
+        osc.stop(time + 0.12);
+      } else if (drumType === 'snare') {
+        const bufSize = Math.floor(this.ctx.sampleRate * 0.08);
+        const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buf;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(1400, time);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.12, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.bgmGain);
+        noise.start(time);
+      } else if (drumType === 'hihat') {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(6500, time);
+        gain.gain.setValueAtTime(0.035, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
+        osc.connect(gain);
+        gain.connect(this.bgmGain);
+        osc.start(time);
+        osc.stop(time + 0.025);
+      }
+    } catch (e) {}
+  }
+
+  scheduleBgmStep(type, step, time) {
+    if (type === 'racing') {
+      // 🏎️ MINING RALLY 3D: Pumping synthwave driving bass + electronic drums
+      const bassNotes = [
+        73.42, 73.42, 146.83, 73.42, 87.31, 87.31, 174.61, 87.31,
+        98.00, 98.00, 196.00, 98.00, 110.00, 110.00, 130.81, 110.00
+      ];
+      const bFreq = bassNotes[step % 16];
+      this.playSynthNote(bFreq, time, 0.10, 'sawtooth', 0.13, true);
+
+      // Lead arpeggio
+      const leadNotes = [293.66, 349.23, 440.00, 523.25, 440.00, 349.23, 293.66, 220.00];
+      if (step % 2 === 0) {
+        this.playSynthNote(leadNotes[(step / 2) % 8], time, 0.12, 'square', 0.07, true);
+      }
+
+      // Drum beat
+      if (step % 4 === 0) this.playDrumBeat('kick', time);
+      if (step % 8 === 4) this.playDrumBeat('snare', time);
+      if (step % 2 === 1) this.playDrumBeat('hihat', time);
+
+    } else if (type === 'quiz') {
+      // 🧠 CERDAS CERMAT: Ticking tension, mystery synth stabs & funky walking bass
+      const qBass = [82.41, 0, 98.00, 0, 110.00, 0, 123.47, 0, 110.00, 0, 98.00, 0, 82.41, 0, 73.42, 0];
+      const qFreq = qBass[step % 16];
+      if (qFreq > 0) this.playSynthNote(qFreq, time, 0.18, 'triangle', 0.15, true);
+
+      // Mystery chord stabs on beat 0 and 16
+      if (step === 0 || step === 32) {
+        [329.63, 392.00, 493.88].forEach(f => this.playSynthNote(f, time, 0.45, 'sine', 0.08, true));
+      } else if (step === 16 || step === 48) {
+        [261.63, 329.63, 392.00].forEach(f => this.playSynthNote(f, time, 0.45, 'sine', 0.08, true));
+      }
+
+      // Clock tick on every 8th note
+      if (step % 2 === 0) this.playDrumBeat('hihat', time);
+      if (step % 16 === 0) this.playDrumBeat('kick', time);
+
+    } else if (type === 'territory' || type === 'tictactoe') {
+      // ⚔️ TERRITORY CONQUEST: Epic strategy cadence & brass chords
+      const mBass = [110.00, 0, 110.00, 0, 130.81, 0, 146.83, 0, 164.81, 0, 146.83, 0, 130.81, 0, 110.00, 0];
+      const mFreq = mBass[step % 16];
+      if (mFreq > 0) this.playSynthNote(mFreq, time, 0.22, 'triangle', 0.16, true);
+
+      if (step % 8 === 0) {
+        [220.00, 277.18, 329.63].forEach(f => this.playSynthNote(f, time, 0.35, 'sawtooth', 0.06, true));
+      }
+      if (step % 4 === 0) this.playDrumBeat('kick', time);
+      if (step % 8 === 4) this.playDrumBeat('snare', time);
+      if (step % 2 === 1) this.playDrumBeat('hihat', time);
+
+    } else {
+      // 🔤 SAMBUNG KATA 3D: Roblox chill & bouncy tropical marimba/island chiptune
+      const skBass = [
+        65.41, 0, 98.00, 0, 82.41, 0, 110.00, 0,
+        73.42, 0, 110.00, 0, 98.00, 0, 146.83, 0
+      ];
+      const skFreq = skBass[step % 16];
+      if (skFreq > 0) this.playSynthNote(skFreq, time, 0.25, 'triangle', 0.18, true);
+
+      // Playful Pentatonic Marimba melody
+      const marimbaPattern = [
+        523.25, 0, 659.25, 0, 783.99, 0, 880.00, 0,
+        659.25, 0, 523.25, 0, 392.00, 0, 440.00, 0,
+        587.33, 0, 659.25, 0, 783.99, 0, 1046.50, 0,
+        880.00, 0, 783.99, 0, 659.25, 0, 523.25, 0
+      ];
+      const mNote = marimbaPattern[step % 32];
+      if (mNote > 0) this.playSynthNote(mNote, time, 0.15, 'sine', 0.10, true);
+
+      // Tropical percussion
+      if (step % 16 === 0 || step % 16 === 8) this.playDrumBeat('kick', time);
+      if (step % 8 === 4) this.playDrumBeat('snare', time);
+      if (step % 2 === 0) this.playDrumBeat('hihat', time);
+    }
   }
 }
 

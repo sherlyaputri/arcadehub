@@ -292,7 +292,8 @@ class SambungKataGame3D {
     ];
 
     const pal = OUTFIT_PALETTE[playerIndex % OUTFIT_PALETTE.length];
-    const outfitColor = player.color ? new THREE.Color(player.color) : new THREE.Color(pal.outfit);
+    // Pastikan warna baju/hoodie tiap pemain selalu berbeda berdasarkan playerIndex
+    const outfitColor = new THREE.Color(pal.outfit);
     const pantsColor = new THREE.Color(pal.pants);
     const hairColor = new THREE.Color(pal.hair);
     const outfitHex = '#' + outfitColor.getHexString();

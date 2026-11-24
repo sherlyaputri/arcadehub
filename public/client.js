@@ -120,7 +120,7 @@ btnJoinRoom.addEventListener('click', () => {
 // Sound Toggle
 btnSoundToggle.addEventListener('click', () => {
   if (!window.soundManager) return;
-  window.soundManager.muted = !window.soundManager.muted;
+  window.soundManager.toggleMute();
   btnSoundToggle.textContent = window.soundManager.muted ? '🔇' : '🔊';
 });
 
@@ -241,6 +241,9 @@ socket.on('returnedToLobby', (room) => {
     activeGameInstance.destroy();
     activeGameInstance = null;
   }
+  if (window.soundManager) {
+    window.soundManager.stopBGM();
+  }
   podiumModal.style.display = 'none';
   showScreen(screenLobby);
   renderLobby();
@@ -335,6 +338,11 @@ function launchGame(gameId) {
   if (activeGameInstance && activeGameInstance.destroy) {
     activeGameInstance.destroy();
     activeGameInstance = null;
+  }
+
+  // Putar BGM musik yang pas untuk game ini
+  if (window.soundManager) {
+    window.soundManager.playBGM(gameId);
   }
 
   showScreen(screenGame);
