@@ -100,24 +100,30 @@ body {
 
 @media (max-width: 768px) {
   .navbar {
-    padding: 10px 14px;
+    padding: 8px 12px;
   }
   .brand {
-    font-size: 17px;
+    font-size: 16px;
   }
   .app-container {
     padding: 6px;
     align-items: flex-start;
   }
   .game-top-bar {
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    padding: 0 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
   }
   .game-title {
-    font-size: 14px !important;
+    font-size: 15px !important;
+    font-weight: 800;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 60%;
+    max-width: 65%;
   }
 }
 
@@ -842,8 +848,17 @@ body {
 .back-text-mobile { display: none; }
 @media (max-width: 768px) {
   .back-text-full { display: none; }
-  .back-text-mobile { display: inline; font-size: 11px; font-weight: 700; }
-  .btn-back-lobby { padding: 5px 10px !important; border-radius: 8px !important; }
+  .back-text-mobile { display: inline; font-size: 12px; font-weight: 700; }
+  .btn-back-lobby {
+    padding: 6px 12px !important;
+    border-radius: 16px !important;
+    background: rgba(30, 41, 59, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    color: #f8fafc !important;
+    flex-shrink: 0;
+    display: inline-flex !important;
+    align-items: center;
+  }
 }
 
 /* ====================================================

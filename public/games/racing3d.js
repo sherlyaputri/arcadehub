@@ -1631,19 +1631,26 @@ class RacingGame3D {
         /* 📱 CLEAN & SLEEK MOBILE OVERRIDES */
         @media (max-width: 768px) {
           #hud3D {
-            top: 8px;
-            left: 8px;
-            right: 8px;
+            top: 6px;
+            left: 6px;
+            right: 6px;
+            gap: 6px;
           }
           .hud-left {
             background: rgba(15, 23, 42, 0.88);
             backdrop-filter: blur(8px);
             border: 1px solid #f59e0b;
-            border-radius: 20px;
-            padding: 6px 14px;
-            gap: 12px;
+            border-radius: 14px;
+            padding: 4px 8px;
+            gap: 8px;
             align-items: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            flex-shrink: 1;
+            min-width: 0;
+            overflow: hidden;
+          }
+          #hudTerrainCard {
+            display: none !important;
           }
           .hud-card {
             background: transparent !important;
@@ -1652,31 +1659,34 @@ class RacingGame3D {
             box-shadow: none !important;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 3px;
+            flex-shrink: 0;
           }
           .hud-title {
-            font-size: 11px !important;
+            font-size: 10px !important;
             font-weight: 700 !important;
           }
-          .hud-title .hint-key {
+          .hud-title .hint-key, .hud-title .hud-lbl {
             display: none !important;
           }
           .hud-val {
-            font-size: 15px !important;
+            font-size: 13px !important;
             font-weight: 900 !important;
           }
           .nitro-bar-wrap {
-            width: 48px !important;
-            height: 7px !important;
+            width: 38px !important;
+            height: 6px !important;
             margin-top: 0 !important;
           }
           .minimap-wrap {
-            padding: 4px !important;
+            padding: 3px !important;
             border-radius: 10px !important;
+            flex-shrink: 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
           }
           #minimapCanvas {
-            width: 65px !important;
-            height: 65px !important;
+            width: 52px !important;
+            height: 52px !important;
           }
         }
         #countdown3D {

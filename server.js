@@ -325,7 +325,6 @@ io.on('connection', (socket) => {
   socket.on('backToLobby', () => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
-    if (room.hostId !== socket.id) return;
 
     clearSkTimer(room.id);
 

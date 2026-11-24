@@ -1342,9 +1342,14 @@ class SambungKataGame3D {
         <h2 style="font-size: 28px; font-weight: 900; margin-bottom: 8px; color: ${isGameOver ? '#ef4444' : '#f59e0b'};">${title}</h2>
         <div style="font-size: 20px; font-weight: 800; color: #fbbf24; margin-bottom: 16px;">${subtitle}</div>
         <p style="color: #94a3b8; font-size: 14px; margin-bottom: 24px;">${desc}</p>
-        <button class="btn btn-primary" id="btnRestartSK" style="padding: 12px 28px; font-size: 16px; font-weight: 800; border-radius: 30px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; cursor: pointer; color: #0f172a;">
-          🔄 ${isGameOver ? 'Main Lagi (Reset)' : 'Main Ronde Berikutnya'}
-        </button>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-primary" id="btnRestartSK" style="padding: 12px 20px; font-size: 15px; font-weight: 800; border-radius: 30px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; cursor: pointer; color: #0f172a;">
+            🔄 ${isGameOver ? 'Main Lagi (Reset)' : 'Main Ronde Berikutnya'}
+          </button>
+          <button class="btn btn-secondary" id="btnLobbySK" style="padding: 12px 20px; font-size: 15px; font-weight: 800; border-radius: 30px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255,255,255,0.2); cursor: pointer; color: #fff;">
+            🏠 Kembali ke Room
+          </button>
+        </div>
       </div>
     `;
     this.container.appendChild(modal);
@@ -1353,6 +1358,15 @@ class SambungKataGame3D {
     if (restartBtn) {
       restartBtn.addEventListener('click', () => {
         this.socket.emit('sambungkata:restart');
+        modal.remove();
+        this.winnerShown = false;
+      });
+    }
+
+    const lobbyBtn = document.getElementById('btnLobbySK');
+    if (lobbyBtn) {
+      lobbyBtn.addEventListener('click', () => {
+        this.socket.emit('backToLobby');
         modal.remove();
         this.winnerShown = false;
       });

@@ -229,9 +229,14 @@ class TerritoryGame {
             <div class="victory-crown" id="victoryIcon">👑</div>
             <h2 id="victoryTitle">CONQUEST COMPLETE!</h2>
             <p id="victoryDesc">Kamu Berhasil Menaklukkan Seluruh Benua Dunia!</p>
-            <button class="btn btn-primary" id="btnRestartConquest" style="margin-top: 18px; font-size: 16px;">
-              ⚔️ Main Lagi
-            </button>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap;">
+              <button class="btn btn-primary" id="btnRestartConquest" style="font-size: 15px;">
+                ⚔️ Main Lagi
+              </button>
+              <button class="btn btn-secondary" id="btnConquestBackToLobby" style="font-size: 15px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255,255,255,0.2); color: #fff;">
+                🏠 Kembali ke Room
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -285,6 +290,13 @@ class TerritoryGame {
       this.socket.emit('territory:restart');
       if (window.soundManager) window.soundManager.click();
     });
+    const btnLobby = document.getElementById('btnConquestBackToLobby');
+    if (btnLobby) {
+      btnLobby.addEventListener('click', () => {
+        if (window.soundManager) window.soundManager.click();
+        this.socket.emit('backToLobby');
+      });
+    }
   }
 
   bindSocket() {

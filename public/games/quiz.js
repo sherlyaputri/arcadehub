@@ -577,9 +577,14 @@ class QuizGame {
           Total Skor Kamu: <strong style="color: #fbbf24; font-size: 32px; display: block; margin-top: 8px;">${this.score} Poin</strong>
         </div>
         <p style="color: #64748b; font-size: 14px; margin-bottom: 24px;">Hebat! Kamu telah menyelesaikan seluruh 10 soal di kategori ini.</p>
-        <button class="btn btn-primary" id="btnRestartQuizCategory" style="padding: 12px 24px; font-size: 15px; font-weight: 700;">
-          🔄 Main Lagi di Kategori Ini
-        </button>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-primary" id="btnRestartQuizCategory" style="padding: 12px 20px; font-size: 15px; font-weight: 700;">
+            🔄 Main Lagi di Kategori Ini
+          </button>
+          <button class="btn btn-secondary" id="btnQuizBackToLobby" style="padding: 12px 20px; font-size: 15px; font-weight: 700; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 10px; cursor: pointer;">
+            🏠 Kembali ke Room
+          </button>
+        </div>
       </div>
     `;
 
@@ -589,6 +594,13 @@ class QuizGame {
         this.score = 0;
         this.setupUI();
         this.loadQuestion(0);
+      });
+    }
+
+    const lobbyBtn = document.getElementById('btnQuizBackToLobby');
+    if (lobbyBtn) {
+      lobbyBtn.addEventListener('click', () => {
+        this.socket.emit('backToLobby');
       });
     }
 

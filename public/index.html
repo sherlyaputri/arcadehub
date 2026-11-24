@@ -120,9 +120,9 @@
     <section class="screen" id="screenGame">
       <div class="game-top-bar">
         <div class="game-title" id="arenaGameTitle">🚜 Mining Rally 3D</div>
-        <button class="btn btn-secondary btn-back-lobby" id="btnBackToLobby" style="display: none;">
-          <span class="back-text-full">Kembali ke Lobby (Host)</span>
-          <span class="back-text-mobile">✕ Lobby</span>
+        <button class="btn btn-secondary btn-back-lobby" id="btnBackToLobby">
+          <span class="back-text-full">🏠 Kembali ke Lobby</span>
+          <span class="back-text-mobile">🏠 Ke Lobby</span>
         </button>
       </div>
 
@@ -160,10 +160,13 @@
   <!-- PODIUM / LEADERBOARD MODAL -->
   <div class="modal-overlay" id="podiumModal">
     <div class="modal-content">
-      <h2 style="font-size: 28px; margin-bottom: 6px;">🏆 HASIL BALAPAN</h2>
-      <p style="color: var(--text-muted); font-size: 14px;">Selamat kepada para juara!</p>
+      <h2 style="font-size: 26px; margin-bottom: 6px;">🏆 HASIL BALAPAN</h2>
+      <p style="color: var(--text-muted); font-size: 14px;">Selamat kepada para pemenang balap!</p>
       <div class="podium-list" id="podiumList"></div>
-      <button class="btn btn-primary btn-block" id="btnClosePodium">Tutup</button>
+      <div style="display: flex; gap: 10px; margin-top: 18px;">
+        <button class="btn btn-success btn-block" id="btnPodiumBackToLobby" style="flex: 2; font-weight: 800;">🏠 Kembali ke Room</button>
+        <button class="btn btn-secondary" id="btnClosePodium" style="flex: 1;">Lihat Track</button>
+      </div>
     </div>
   </div>
 

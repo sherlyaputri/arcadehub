@@ -315,15 +315,24 @@ function launchGame(gameId) {
 
   showScreen(screenGame);
 
-  const isHost = currentRoom.hostId === selfId;
-  btnBackToLobby.style.display = isHost ? 'block' : 'none';
+  // Selalu tampilkan tombol kembali ke lobby untuk semua pemain
+  btnBackToLobby.style.display = 'inline-flex';
+
+  const isMobile = window.innerWidth <= 768;
+  const gameTitles = {
+    racing: isMobile ? '🚜 Mining Rally 3D' : '🚜 Mining Rally 3D (Balap Tambang & Konstruksi)',
+    sambungkata: '🔤 Sambung Kata 3D',
+    territory: isMobile ? '⚔️ Territory Conquest' : '⚔️ Territory Conquest (Perebutan Wilayah)',
+    tictactoe: isMobile ? '⚔️ Territory Conquest' : '⚔️ Territory Conquest (Perebutan Wilayah)',
+    quiz: isMobile ? '🧠 Quiz Trivia' : '🧠 Quiz Trivia Showdown'
+  };
+  arenaGameTitle.textContent = gameTitles[gameId] || gameId;
 
   racingCanvas.style.display = 'none';
   domGameContainer.style.display = 'none';
   mobileControls.style.display = 'none';
 
   if (gameId === 'racing') {
-    arenaGameTitle.textContent = '🚜 Mining Rally 3D (Balap Tambang & Konstruksi)';
     mobileControls.style.display = 'flex';
 
     if (window.RacingGame3D && typeof THREE !== 'undefined') {
@@ -338,7 +347,6 @@ function launchGame(gameId) {
     setupTouchControls(activeGameInstance);
 
   } else if (gameId === 'territory' || gameId === 'tictactoe') {
-    arenaGameTitle.textContent = '⚔️ Territory Conquest (Perebutan Wilayah)';
     domGameContainer.style.display = 'flex';
     if (window.TerritoryGame) {
       activeGameInstance = new window.TerritoryGame(domGameContainer, socket, currentRoom, selfId);
@@ -347,12 +355,10 @@ function launchGame(gameId) {
     }
 
   } else if (gameId === 'sambungkata') {
-    arenaGameTitle.textContent = '🔤 Sambung Kata 3D (Roblox Style)';
     if (window.SambungKataGame3D) {
       activeGameInstance = new window.SambungKataGame3D(arenaViewport, socket, currentRoom, selfId);
     }
   } else if (gameId === 'quiz') {
-    arenaGameTitle.textContent = '🧠 Quiz Trivia Showdown';
     domGameContainer.style.display = 'flex';
     activeGameInstance = new window.QuizGame(domGameContainer, socket, currentRoom, selfId);
   }
@@ -409,6 +415,15 @@ window.renderPodium = function(leaderboard) {
     </div>
   `).join('');
 };
+
+const btnPodiumBackToLobby = document.getElementById('btnPodiumBackToLobby');
+if (btnPodiumBackToLobby) {
+  btnPodiumBackToLobby.addEventListener('click', () => {
+    if (window.soundManager) window.soundManager.click();
+    podiumModal.style.display = 'none';
+    socket.emit('backToLobby');
+  });
+}
 
 btnClosePodium.addEventListener('click', () => {
   podiumModal.style.display = 'none';
