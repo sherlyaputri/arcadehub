@@ -49,16 +49,17 @@ class SambungKataGame3D {
 
     // Camera - Posisi close-up potret Roblox (Persis Gambar Referensi)
     this.camera = new THREE.PerspectiveCamera(46, this.width / this.height, 0.1, 800);
-    this.camera.position.set(0, 3.4, 6.8);
-    this.camera.lookAt(0, 2.7, 0);
+    this.camera.position.set(0, 3.6, 7.8);
+    this.camera.lookAt(0, 3.2, 0);
 
     // Orbit Controls & Auto Focus Target
     this.orbitYaw = 0;
     this.orbitPitch = 0;
-    this.orbitDist = 5.6;
+    this.orbitDist = this.getOptimalCamDist();
     this.arenaRadius = 3.4;
     this.currentCameraAngle = Math.PI;
     this.targetCameraAngle = Math.PI;
+    this.userHasZoomed = false;
     this.setupCameraControls();
 
     // Renderer
@@ -87,15 +88,27 @@ class SambungKataGame3D {
     sunsetRimLight.position.set(-10, 5, -8);
     this.scene.add(sunsetRimLight);
 
-    // Window resize
+    // Window resize (Responsive Camera & Viewport)
     this.resizeHandler = () => {
       this.width = this.container.clientWidth;
       this.height = this.container.clientHeight;
       this.camera.aspect = this.width / this.height;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(this.width, this.height);
+      if (!this.userHasZoomed) {
+        this.orbitDist = this.getOptimalCamDist();
+      }
     };
     window.addEventListener('resize', this.resizeHandler);
+  }
+
+  // Hitung jarak kamera ideal agar avatar & kartu 3D muat rapi di Laptop maupun HP
+  getOptimalCamDist() {
+    const aspect = (this.width || 1200) / (this.height || 750);
+    if (aspect < 0.75) return 9.5; // HP Layar Portrait ramping
+    if (aspect < 1.0) return 8.8;  // HP Portrait lebar / Tablet
+    if (aspect < 1.4) return 8.2;  // Laptop sedang
+    return 7.6; // Laptop / Desktop widescreen
   }
 
   // 🎮 Kontrol Kamera Geser / Orbit 360° & Zoom
@@ -133,6 +146,7 @@ class SambungKataGame3D {
 
     const onWheel = (e) => {
       // Zoom in / zoom out kamera
+      this.userHasZoomed = true;
       this.orbitDist = Math.max(3.8, Math.min(14.0, this.orbitDist + e.deltaY * 0.008));
     };
 
@@ -438,8 +452,8 @@ class SambungKataGame3D {
     const bubbleTexture = new THREE.CanvasTexture(bubbleCanvas);
     const bubbleMat = new THREE.SpriteMaterial({ map: bubbleTexture, transparent: true });
     const bubbleSprite = new THREE.Sprite(bubbleMat);
-    bubbleSprite.position.set(0, 5.2, 0);
-    bubbleSprite.scale.set(3.0, 3.0, 1);
+    bubbleSprite.position.set(0, 5.0, 0);
+    bubbleSprite.scale.set(2.7, 2.7, 1);
     avatar.add(bubbleSprite);
 
     // Simpan data render bubble
@@ -669,184 +683,354 @@ class SambungKataGame3D {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          padding: 16px;
+          padding: 10px 14px;
           z-index: 20;
           font-family: inherit;
+          box-sizing: border-box;
         }
+
+        /* Top Header Pills (Clean & Never Obstructing 3D Scene) */
         .sk-top-bar {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          gap: 12px;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
         }
-        .sk-card {
-          background: rgba(15, 23, 42, 0.90);
+
+        .sk-glass-pill {
+          background: rgba(15, 23, 42, 0.85);
           backdrop-filter: blur(10px);
-          border: 2px solid #f59e0b;
-          border-radius: 16px;
-          padding: 10px 18px;
+          border: 1.5px solid rgba(245, 158, 11, 0.4);
+          border-radius: 30px;
+          padding: 6px 14px;
           color: #ffffff;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
-        .sk-badge {
-          display: inline-block;
-          background: #f59e0b;
+
+        .sk-lives-row {
+          font-size: 16px;
+          letter-spacing: 2px;
+          display: flex;
+          align-items: center;
+        }
+
+        .sk-score-badge {
+          font-size: 12px;
+          font-weight: 800;
+          color: #fbbf24;
+          padding-left: 6px;
+          border-left: 1px solid rgba(255, 255, 255, 0.15);
+          white-space: nowrap;
+        }
+
+        /* Center Turn Indicator (Minimalist & Sleek) */
+        .sk-turn-pill {
+          background: rgba(15, 23, 42, 0.88);
+          backdrop-filter: blur(10px);
+          border: 1.5px solid rgba(0, 242, 254, 0.5);
+          border-radius: 30px;
+          padding: 5px 14px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 0 16px rgba(0, 242, 254, 0.25);
+          max-width: 48%;
+          white-space: nowrap;
+          overflow: hidden;
+        }
+
+        .sk-turn-indicator {
+          font-size: 13px;
+          font-weight: 800;
+          color: #00ff88;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .sk-prompt-badge {
+          background: linear-gradient(135deg, #f59e0b, #d97706);
           color: #0f172a;
           font-weight: 900;
-          font-size: 11px;
+          font-size: 13px;
           padding: 2px 8px;
-          border-radius: 10px;
-          text-transform: uppercase;
+          border-radius: 12px;
+          letter-spacing: 1px;
         }
-        .sk-lives {
-          font-size: 22px;
-          letter-spacing: 2px;
-          margin-top: 4px;
+
+        /* Right Group: Timer & Collapsible History */
+        .sk-right-group {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          position: relative;
         }
-        .sk-center-prompt {
-          background: rgba(15, 23, 42, 0.92);
-          border: 2px solid #00f2fe;
-          border-radius: 20px;
-          padding: 8px 24px;
-          text-align: center;
+
+        .sk-timer-pill {
+          background: rgba(15, 23, 42, 0.85);
+          backdrop-filter: blur(10px);
+          border: 1.5px solid rgba(16, 185, 129, 0.4);
+          border-radius: 30px;
+          padding: 5px 12px;
           color: #fff;
-          box-shadow: 0 0 25px rgba(0, 242, 254, 0.35);
-        }
-        .sk-prompt-letter {
-          font-size: 38px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 14px;
           font-weight: 900;
-          color: #facc15;
-          letter-spacing: 4px;
-          text-shadow: 0 0 15px rgba(250, 204, 21, 0.6);
         }
+
         .sk-timer {
-          font-size: 28px;
+          font-size: 16px;
           font-weight: 900;
           color: #00ff88;
+          min-width: 28px;
+          text-align: center;
         }
+
         .sk-timer.danger {
           color: #ef4444;
           animation: pulse 0.5s infinite alternate;
         }
-        .sk-history-box {
+
+        .sk-btn-history-toggle {
+          pointer-events: auto;
           background: rgba(15, 23, 42, 0.85);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          border-radius: 12px;
-          padding: 8px 14px;
-          max-height: 120px;
-          overflow-y: auto;
-          font-size: 13px;
-          color: #e2e8f0;
-          width: 260px;
+          border: 1.5px solid rgba(255, 255, 255, 0.2);
+          border-radius: 30px;
+          padding: 6px 12px;
+          color: #cbd5e1;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.2s;
         }
+
+        .sk-btn-history-toggle:hover {
+          background: rgba(30, 41, 59, 0.95);
+          border-color: #f59e0b;
+          color: #fff;
+        }
+
+        .sk-history-dropdown {
+          pointer-events: auto;
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          background: rgba(15, 23, 42, 0.96);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          border-radius: 14px;
+          padding: 8px 12px;
+          width: 220px;
+          max-height: 140px;
+          overflow-y: auto;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+          display: none;
+          z-index: 30;
+        }
+
+        .sk-history-dropdown.open {
+          display: block;
+        }
+
+        /* Bottom Input Form (Fully Responsive & Overflow-Safe on HP & Laptop) */
         .sk-bottom-input-wrap {
           pointer-events: auto;
           display: flex;
-          justify-content: center;
+          flex-direction: column;
           align-items: center;
-          margin-bottom: 12px;
+          width: 100%;
+          padding: 0 10px;
+          margin-bottom: 6px;
+          box-sizing: border-box;
         }
+
         .sk-input-form {
           display: flex;
-          gap: 10px;
+          align-items: center;
+          gap: 6px;
           width: 100%;
-          max-width: 600px;
-          background: rgba(15, 23, 42, 0.95);
+          max-width: 480px;
+          background: rgba(15, 23, 42, 0.92);
+          backdrop-filter: blur(10px);
           border: 2px solid #f59e0b;
           border-radius: 50px;
-          padding: 6px 10px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+          padding: 4px 5px 4px 14px;
+          box-sizing: border-box;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
         }
+
         .sk-input {
           flex: 1;
+          min-width: 0;
           background: transparent;
           border: none;
           color: #ffffff;
-          font-size: 18px;
+          font-size: 15px;
           font-weight: 700;
-          padding: 8px 18px;
+          padding: 6px 4px;
           outline: none;
           text-transform: uppercase;
         }
+
         .sk-input::placeholder {
           color: #64748b;
-          font-size: 14px;
+          font-size: 13px;
           text-transform: none;
         }
+
         .sk-btn-send {
+          flex-shrink: 0;
           background: linear-gradient(135deg, #f59e0b, #d97706);
           border: none;
           border-radius: 40px;
           color: #0f172a;
           font-weight: 900;
-          font-size: 15px;
-          padding: 8px 24px;
+          font-size: 13px;
+          padding: 8px 18px;
           cursor: pointer;
           transition: transform 0.1s, box-shadow 0.1s;
         }
+
         .sk-btn-send:hover {
-          transform: scale(1.04);
-          box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
+          transform: scale(1.03);
+          box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
         }
+
+        .sk-cam-hint {
+          font-size: 10px;
+          font-weight: 700;
+          color: #94a3b8;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+          background: rgba(15,23,42,0.65);
+          padding: 2px 10px;
+          border-radius: 10px;
+          margin-top: 4px;
+          pointer-events: none;
+        }
+
         .sk-feedback-msg {
           position: absolute;
-          bottom: 85px;
+          bottom: 75px;
           left: 50%;
           transform: translateX(-50%);
           background: rgba(239, 68, 68, 0.92);
           color: #fff;
           font-weight: 800;
-          padding: 6px 18px;
+          padding: 5px 16px;
           border-radius: 20px;
-          font-size: 14px;
+          font-size: 13px;
           display: none;
           box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+          z-index: 25;
         }
+
         .sk-feedback-msg.success {
           background: rgba(16, 185, 129, 0.92);
         }
+
+        /* Mobile Viewport Adjustments */
+        @media (max-width: 640px) {
+          #sambungKataHUD {
+            padding: 6px 8px;
+          }
+          .sk-glass-pill {
+            padding: 4px 8px;
+            gap: 4px;
+          }
+          .sk-lives-row {
+            font-size: 13px;
+            letter-spacing: 1px;
+          }
+          .sk-score-badge {
+            font-size: 10px;
+            padding-left: 4px;
+          }
+          .sk-turn-pill {
+            padding: 3px 8px;
+            gap: 4px;
+            max-width: 44%;
+          }
+          .sk-turn-indicator {
+            font-size: 10.5px;
+          }
+          .sk-prompt-badge {
+            font-size: 11px;
+            padding: 1px 6px;
+          }
+          .sk-timer-pill {
+            padding: 4px 7px;
+            font-size: 12px;
+          }
+          .sk-timer {
+            font-size: 13px;
+            min-width: 22px;
+          }
+          .sk-btn-history-toggle {
+            padding: 4px 7px;
+            font-size: 11px;
+          }
+          .sk-history-btn-text {
+            display: none;
+          }
+          .sk-input-form {
+            padding: 3px 4px 3px 12px;
+          }
+          .sk-input {
+            font-size: 13.5px;
+          }
+          .sk-btn-send {
+            padding: 7px 14px;
+            font-size: 12px;
+          }
+        }
       </style>
 
+      <!-- 1. Header Bar: Sleek Translucent Glass Pills -->
       <div class="sk-top-bar">
-        <div class="sk-card">
-          <div class="sk-badge">❤️ Sisa Nyawa Kamu</div>
-          <div class="sk-lives" id="skLivesDisplay">❤️❤️❤️</div>
-          <div style="font-size: 13px; font-weight: 800; color: #fbbf24; margin-top: 4px;" id="skScoreDisplay">Skor: 0</div>
+        <div class="sk-glass-pill">
+          <div class="sk-lives-row" id="skLivesDisplay">❤️❤️❤️</div>
+          <div class="sk-score-badge" id="skScoreDisplay">Skor: 0</div>
         </div>
 
-        <div class="sk-center-prompt">
-          <div style="font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">
-            🔤 2 Huruf Awalan Kata
-          </div>
-          <div class="sk-prompt-letter" id="skPromptDisplay">AN</div>
-          <div style="font-size: 13px; color: #38bdf8; font-weight: 700;" id="skTurnIndicator">
-            Giliran Kamu!
-          </div>
+        <div class="sk-turn-pill">
+          <div class="sk-prompt-badge" id="skPromptDisplay">AN</div>
+          <div class="sk-turn-indicator" id="skTurnIndicator">Giliran Kamu!</div>
         </div>
 
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-          <div class="sk-card" style="text-align: center; min-width: 90px;">
-            <div style="font-size: 11px; font-weight: 800; color: #94a3b8;">SISA WAKTU</div>
-            <div class="sk-timer" id="skTimerDisplay">15s</div>
+        <div class="sk-right-group">
+          <div class="sk-timer-pill">
+            <span style="font-size: 11px; opacity: 0.8;">⏱️</span>
+            <span class="sk-timer" id="skTimerDisplay">15s</span>
           </div>
-          <div class="sk-history-box" id="skHistoryList">
-            <strong>Rantai Sambung Kata:</strong>
-            <div id="skHistoryContent">Belum ada kata</div>
+          <button class="sk-btn-history-toggle" id="skBtnHistoryToggle" type="button" title="Lihat Rantai Kata">
+            📜 <span class="sk-history-btn-text">Rantai</span>
+          </button>
+          <div class="sk-history-dropdown" id="skHistoryDropdown">
+            <div style="font-size: 11px; font-weight: 800; color: #94a3b8; margin-bottom: 4px; text-transform: uppercase;">Rantai Kata:</div>
+            <div id="skHistoryContent" style="font-size: 12px; color: #e2e8f0;">Belum ada kata</div>
           </div>
         </div>
       </div>
 
       <div class="sk-feedback-msg" id="skFeedbackMsg">Kata tidak valid!</div>
 
+      <!-- 2. Bottom Input Bar -->
       <div class="sk-bottom-input-wrap">
-        <div style="display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 600px; gap: 6px;">
-          <form class="sk-input-form" id="skInputForm">
-            <input type="text" class="sk-input" id="skWordInput" placeholder="Ketik kata berawalan [AN]... (misal: ANGGUR)" autocomplete="off" />
-            <button type="submit" class="sk-btn-send" id="skBtnSend">KIRIM ↵</button>
-          </form>
-          <div style="font-size: 11px; font-weight: 700; color: #cbd5e1; text-shadow: 0 1px 3px rgba(0,0,0,0.8); background: rgba(15,23,42,0.6); padding: 3px 14px; border-radius: 12px;">
-            🎥 Geser mouse / layar untuk putar kamera 360° | Scroll untuk Zoom
-          </div>
+        <form class="sk-input-form" id="skInputForm">
+          <input type="text" class="sk-input" id="skWordInput" placeholder="Ketik kata berawalan [AN]... (misal: ANGGUR)" autocomplete="off" />
+          <button type="submit" class="sk-btn-send" id="skBtnSend">KIRIM ↵</button>
+        </form>
+        <div class="sk-cam-hint">
+          🎥 Geser layar / mouse untuk putar 360° | Scroll untuk Zoom
         </div>
       </div>
     `;
@@ -862,6 +1046,21 @@ class SambungKataGame3D {
     this.inputEl = document.getElementById('skWordInput');
     this.formEl = document.getElementById('skInputForm');
     this.feedbackEl = document.getElementById('skFeedbackMsg');
+
+    // Toggle dropdown history
+    const histBtn = document.getElementById('skBtnHistoryToggle');
+    const histDrop = document.getElementById('skHistoryDropdown');
+    if (histBtn && histDrop) {
+      histBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        histDrop.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#skHistoryDropdown') && !e.target.closest('#skBtnHistoryToggle')) {
+          histDrop.classList.remove('open');
+        }
+      });
+    }
 
     this.formEl.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -1075,21 +1274,21 @@ class SambungKataGame3D {
     const time = this.clock.getElapsedTime();
 
     const totalPlayers = Object.keys(this.avatars).length;
+    const baseDist = this.orbitDist || this.getOptimalCamDist();
 
     if (totalPlayers <= 1) {
       // 1 Pemain: Kamera tetap membingkai pemain solo di tengah
-      const camDist = this.orbitDist || 5.6;
       const cosPitch = Math.cos(this.orbitPitch);
       const sinPitch = Math.sin(this.orbitPitch);
       const sinYaw = Math.sin(this.orbitYaw);
       const cosYaw = Math.cos(this.orbitYaw);
 
-      const camX = camDist * cosPitch * sinYaw;
-      const camY = 2.6 + camDist * sinPitch + 0.6;
-      const camZ = camDist * cosPitch * cosYaw;
+      const camX = baseDist * cosPitch * sinYaw;
+      const camY = 3.2 + baseDist * sinPitch + 0.3;
+      const camZ = baseDist * cosPitch * cosYaw;
 
       this.camera.position.set(camX, camY, camZ);
-      this.camera.lookAt(0, 2.6, 0);
+      this.camera.lookAt(0, 3.2, 0);
     } else {
       // 2 Pemain (Berhadapan) atau 3+ Pemain (Melingkar):
       // Interpolasi sudut kamera terpendek (shortest angular lerp) mengelilingi panggung
@@ -1103,17 +1302,16 @@ class SambungKataGame3D {
       const r = this.arenaRadius || 3.4;
       const targetX = Math.cos(this.currentCameraAngle) * r;
       const targetZ = Math.sin(this.currentCameraAngle) * r;
-      const targetY = 2.6; // Fokus setinggi dada/wajah
+      const targetY = 3.2; // Titik fokus setinggi 3.2 (antara kepala dan kartu)
 
-      // Kamera berada di depan pemain (melihat wajah dan kartu secara lurus)
-      const camDist = this.orbitDist || 5.6;
+      // Kamera berada di depan pemain (melihat wajah dan kartu secara utuh)
       const effectiveAngle = this.currentCameraAngle + Math.PI + this.orbitYaw;
       const cosPitch = Math.cos(this.orbitPitch);
       const sinPitch = Math.sin(this.orbitPitch);
 
-      const camX = targetX + camDist * cosPitch * Math.cos(effectiveAngle);
-      const camZ = targetZ + camDist * cosPitch * Math.sin(effectiveAngle);
-      const camY = targetY + camDist * sinPitch + 0.6;
+      const camX = targetX + baseDist * cosPitch * Math.cos(effectiveAngle);
+      const camZ = targetZ + baseDist * cosPitch * Math.sin(effectiveAngle);
+      const camY = targetY + baseDist * sinPitch + 0.3;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(targetX, targetY, targetZ);
@@ -1128,7 +1326,7 @@ class SambungKataGame3D {
       const idleBob = Math.sin(av.animTime * 2.8) * 0.04;
       av.torso.position.y = 2.05 + idleBob;
       av.head.position.y = 3.25 + idleBob * 1.2;
-      av.bubbleSprite.position.y = 5.2 + idleBob * 1.5;
+      av.bubbleSprite.position.y = 5.0 + idleBob * 1.5;
 
       // Gerakan tangan santai
       av.leftArm.rotation.x = Math.sin(av.animTime * 2.8) * 0.08;
