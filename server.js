@@ -42,7 +42,7 @@ const AVAILABLE_GAMES = [
   { id: 'tictactoe', name: '⚔️ Territory Conquest (Perebutan Wilayah)', minPlayers: 2, maxPlayers: 2 }
 ];
 
-const DEFAULT_COLORS = ['#ff3366', '#00d2ff', '#00ff88', '#ffcc00', '#b537f2', '#ff8800', '#ffffff', '#00ffff'];
+const DEFAULT_COLORS = ['#ff3366', '#00d2ff', '#00ff88', '#ffcc00', '#b537f2', '#ff8800', '#ec4899', '#00ffff'];
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -208,7 +208,7 @@ io.on('connection', (socket) => {
     const roomId = generateRoomCode();
     currentRoomId = roomId;
 
-    const playerColor = color || DEFAULT_COLORS[0];
+    const playerColor = DEFAULT_COLORS[0];
     const player = {
       id: socket.id,
       name: (name || 'Pembalap ' + Math.floor(Math.random() * 100)).trim(),
@@ -247,7 +247,7 @@ io.on('connection', (socket) => {
     }
 
     currentRoomId = cleanRoomId;
-    const assignedColor = color || DEFAULT_COLORS[playerCount % DEFAULT_COLORS.length];
+    const assignedColor = DEFAULT_COLORS[playerCount % DEFAULT_COLORS.length];
 
     const player = {
       id: socket.id,

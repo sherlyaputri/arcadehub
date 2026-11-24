@@ -4,13 +4,7 @@ const socket = io();
 // State
 let selfId = null;
 let currentRoom = null;
-let selectedColor = '#ff3366';
 let activeGameInstance = null;
-
-const COLORS = [
-  '#ff3366', '#00d2ff', '#00ff88', '#ffcc00',
-  '#b537f2', '#ff8800', '#ffffff', '#00ffff'
-];
 
 // DOM Elements
 const screenHome = document.getElementById('screenHome');
@@ -23,12 +17,10 @@ const btnSoundToggle = document.getElementById('btnSoundToggle');
 
 // Home Inputs
 const createPlayerName = document.getElementById('createPlayerName');
-const createColorPicker = document.getElementById('createColorPicker');
 const btnCreateRoom = document.getElementById('btnCreateRoom');
 
 const joinRoomCode = document.getElementById('joinRoomCode');
 const joinPlayerName = document.getElementById('joinPlayerName');
-const joinColorPicker = document.getElementById('joinColorPicker');
 const btnJoinRoom = document.getElementById('btnJoinRoom');
 
 // Lobby Elements
@@ -63,33 +55,9 @@ const podiumModal = document.getElementById('podiumModal');
 const podiumList = document.getElementById('podiumList');
 const btnClosePodium = document.getElementById('btnClosePodium');
 
-// ==================== COLOR PICKERS SETUP ====================
-function initColorPickers() {
-  const createColorOpts = (container, isCreate) => {
-    container.innerHTML = '';
-    COLORS.forEach((color, idx) => {
-      const dot = document.createElement('div');
-      dot.className = 'color-option' + (idx === 0 ? ' selected' : '');
-      dot.style.backgroundColor = color;
-      dot.addEventListener('click', () => {
-        container.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
-        dot.classList.add('selected');
-        selectedColor = color;
-        if (window.soundManager) window.soundManager.click();
-      });
-      container.appendChild(dot);
-    });
-  };
-
-  initDefaultName();
-  createColorOpts(createColorPicker, true);
-  createColorOpts(joinColorPicker, false);
-}
-
 function initDefaultName() {
   const randomNum = Math.floor(100 + Math.random() * 900);
-  const defaultNick = 'Racer_' + randomNum;
-  createPlayerName.value = defaultNick;
+  createPlayerName.value = 'Racer_' + randomNum;
   joinPlayerName.value = 'Challenger_' + randomNum;
 }
 
@@ -103,7 +71,7 @@ function showScreen(screen) {
 btnCreateRoom.addEventListener('click', () => {
   if (window.soundManager) window.soundManager.init();
   const name = createPlayerName.value.trim() || 'Host';
-  socket.emit('createRoom', { name, color: selectedColor });
+  socket.emit('createRoom', { name });
 });
 
 btnJoinRoom.addEventListener('click', () => {
@@ -114,7 +82,7 @@ btnJoinRoom.addEventListener('click', () => {
     alert('Masukkan kode room terlebih dahulu!');
     return;
   }
-  socket.emit('joinRoom', { roomId, name, color: selectedColor });
+  socket.emit('joinRoom', { roomId, name });
 });
 
 // Sound Toggle
@@ -447,4 +415,4 @@ btnClosePodium.addEventListener('click', () => {
 });
 
 // Initialize on start
-initColorPickers();
+initDefaultName();
