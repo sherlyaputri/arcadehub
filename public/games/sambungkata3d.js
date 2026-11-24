@@ -1168,7 +1168,17 @@ class SambungKataGame3D {
       this.turnIndicatorEl.style.color = '#00ff88';
       this.inputEl.disabled = false;
       this.inputEl.placeholder = `Ketik kata berawalan [${s.prompt}]... (misal: ${s.prompt}...)`;
-      this.inputEl.focus();
+
+      // Jangan otomatis aktifkan keyboard di HP agar pemain bisa melihat tampilan clean screen.
+      // Keyboard hanya akan muncul saat pemain mengetuk/mengklik bidang input.
+      const isMobileDevice = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || ('ontouchstart' in window)
+        || (navigator.maxTouchPoints > 0)
+        || (window.innerWidth <= 768);
+
+      if (!isMobileDevice && document.activeElement !== this.inputEl) {
+        this.inputEl.focus();
+      }
     } else {
       this.turnIndicatorEl.textContent = `⏳ Giliran ${activePlayerName} (Awalan: ${s.prompt})...`;
       this.turnIndicatorEl.style.color = '#94a3b8';
