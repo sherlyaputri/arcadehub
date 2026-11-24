@@ -55,9 +55,10 @@ class SambungKataGame3D {
     // Orbit Controls & Auto Focus Target
     this.orbitYaw = 0;
     this.orbitPitch = 0;
-    this.orbitDist = 6.8;
-    this.focusTarget = new THREE.Vector3(0, 2.7, 0);
-    this.desiredFocusTarget = new THREE.Vector3(0, 2.7, 0);
+    this.orbitDist = 5.6;
+    this.arenaRadius = 3.4;
+    this.currentCameraAngle = Math.PI;
+    this.targetCameraAngle = Math.PI;
     this.setupCameraControls();
 
     // Renderer
@@ -179,22 +180,43 @@ class SambungKataGame3D {
       this.scene.add(ringMesh);
     }
 
-    // 🧱 2. Pagar / Balok Kayu Latar Belakang (Seperti di foto)
+    // 🧱 2. Pagar Kayu Melingkar Mengelilingi Seluruh Panggung (360° Fence)
     const fenceMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.75 });
-    for (let i = -4; i <= 4; i++) {
-      const postGeo = new THREE.BoxGeometry(0.35, 3.2, 0.35);
+    const postGeo = new THREE.BoxGeometry(0.32, 2.6, 0.32);
+    const numPosts = 24;
+    const fenceRadius = 9.3;
+
+    for (let i = 0; i < numPosts; i++) {
+      const a1 = (i / numPosts) * Math.PI * 2;
+      const a2 = ((i + 1) / numPosts) * Math.PI * 2;
+      const x1 = Math.cos(a1) * fenceRadius;
+      const z1 = Math.sin(a1) * fenceRadius;
+      const x2 = Math.cos(a2) * fenceRadius;
+      const z2 = Math.sin(a2) * fenceRadius;
+
+      // Tiang pagar tegak
       const postMesh = new THREE.Mesh(postGeo, fenceMat);
-      postMesh.position.set(i * 2.2, 1.4, -4.5);
+      postMesh.position.set(x1, 1.2, z1);
       postMesh.castShadow = true;
       this.scene.add(postMesh);
+
+      // Balok palang pagar horizontal atas & bawah menghubungkan tiang
+      const segLen = Math.hypot(x2 - x1, z2 - z1);
+      const barGeo = new THREE.BoxGeometry(segLen + 0.1, 0.22, 0.18);
+      const midX = (x1 + x2) / 2;
+      const midZ = (z1 + z2) / 2;
+      const rotY = Math.atan2(x2 - x1, z2 - z1) + Math.PI / 2;
+
+      const bar1 = new THREE.Mesh(barGeo, fenceMat);
+      bar1.position.set(midX, 1.0, midZ);
+      bar1.rotation.y = rotY;
+      this.scene.add(bar1);
+
+      const bar2 = new THREE.Mesh(barGeo, fenceMat);
+      bar2.position.set(midX, 2.0, midZ);
+      bar2.rotation.y = rotY;
+      this.scene.add(bar2);
     }
-    const barGeo = new THREE.BoxGeometry(19, 0.28, 0.25);
-    const barMesh1 = new THREE.Mesh(barGeo, fenceMat);
-    barMesh1.position.set(0, 1.2, -4.5);
-    this.scene.add(barMesh1);
-    const barMesh2 = new THREE.Mesh(barGeo, fenceMat);
-    barMesh2.position.set(0, 2.4, -4.5);
-    this.scene.add(barMesh2);
 
     // 🌿 3. Rumput Hijau & Bukit (Grassy Ground & Mountain Hills)
     const groundGeo = new THREE.PlaneGeometry(350, 350);
@@ -215,10 +237,13 @@ class SambungKataGame3D {
       this.scene.add(hillMesh);
     }
 
-    // 🌲 4. Pohon-pohon Blok (Blocky Low-Poly Trees)
+    // 🌲 4. Pohon-pohon Blok Mengelilingi Arena Panggung (360° Trees)
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
     const leavesMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 });
-    for (let t = -5; t <= 5; t += 2) {
+    const numTrees = 18;
+    for (let t = 0; t < numTrees; t++) {
+      const treeAngle = (t / numTrees) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
+      const treeDist = 13.5 + (t % 3) * 3;
       const treeGroup = new THREE.Group();
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 4.5, 6), trunkMat);
       trunk.position.y = 2.0;
@@ -230,7 +255,7 @@ class SambungKataGame3D {
         leaves.castShadow = true;
         treeGroup.add(leaves);
       }
-      treeGroup.position.set(t * 3.8 + (Math.random() - 0.5) * 2, 0, -8 - Math.random() * 4);
+      treeGroup.position.set(Math.cos(treeAngle) * treeDist, 0, Math.sin(treeAngle) * treeDist);
       this.scene.add(treeGroup);
     }
   }
@@ -413,8 +438,8 @@ class SambungKataGame3D {
     const bubbleTexture = new THREE.CanvasTexture(bubbleCanvas);
     const bubbleMat = new THREE.SpriteMaterial({ map: bubbleTexture, transparent: true });
     const bubbleSprite = new THREE.Sprite(bubbleMat);
-    bubbleSprite.position.set(0, 5.7, 0);
-    bubbleSprite.scale.set(3.4, 3.4, 1);
+    bubbleSprite.position.set(0, 5.2, 0);
+    bubbleSprite.scale.set(3.0, 3.0, 1);
     avatar.add(bubbleSprite);
 
     // Simpan data render bubble
@@ -573,19 +598,63 @@ class SambungKataGame3D {
     const playersArr = Object.values(this.roomInfo.players);
     const total = playersArr.length;
 
+    // Radius panggung arena untuk posisi pemain
+    const circleRadius = total <= 2 ? 3.4 : Math.min(5.2, 2.6 + total * 0.45);
+    this.arenaRadius = circleRadius;
+
     playersArr.forEach((p, idx) => {
       const avatarObj = this.createRobloxAvatar(p);
 
-      // Susun melingkar atau berjejer di panggung
-      const spacing = 3.2;
-      const startX = -((total - 1) * spacing) / 2;
-      const xPos = total === 1 ? 0 : startX + idx * spacing;
-      const zPos = total === 1 ? 0 : -Math.abs(xPos * 0.25);
+      let xPos = 0;
+      let zPos = 0;
+      let rotY = 0;
+      let angle = 0;
+
+      if (total === 1) {
+        // 1 Pemain: Tepat di tengah panggung menghadap ke depan (+Z)
+        xPos = 0;
+        zPos = 0;
+        rotY = 0;
+        angle = Math.PI / 2;
+      } else if (total === 2) {
+        // 2 Pemain: Berhadapan langsung (Duel / Showdown 1v1)
+        if (idx === 0) {
+          xPos = -circleRadius;
+          zPos = 0;
+          rotY = Math.PI / 2; // Menghadap ke kanan (+X) langsung ke Pemain 2
+          angle = Math.PI;    // Posisi sudut -X
+        } else {
+          xPos = circleRadius;
+          zPos = 0;
+          rotY = -Math.PI / 2; // Menghadap ke kiri (-X) langsung ke Pemain 1
+          angle = 0;          // Posisi sudut +X
+        }
+      } else {
+        // 3 Pemain atau Lebih: Melingkar mengelilingi panggung
+        // Setiap pemain menghadap ke pusat lingkaran (0, 0, 0)
+        angle = (idx / total) * Math.PI * 2 - Math.PI / 2;
+        xPos = Math.cos(angle) * circleRadius;
+        zPos = Math.sin(angle) * circleRadius;
+        rotY = Math.atan2(-xPos, -zPos); // Menghadap ke titik tengah arena
+      }
 
       avatarObj.root.position.set(xPos, 0, zPos);
+      avatarObj.root.rotation.y = rotY;
+      avatarObj.arenaAngle = angle;
+
       this.scene.add(avatarObj.root);
       this.avatars[p.id] = avatarObj;
     });
+
+    // Inisialisasi sudut kamera ke pemain giliran pertama
+    const firstPlayerId = playersArr[0]?.id;
+    if (firstPlayerId && this.avatars[firstPlayerId]) {
+      this.targetCameraAngle = this.avatars[firstPlayerId].arenaAngle;
+      this.currentCameraAngle = this.targetCameraAngle;
+    } else {
+      this.targetCameraAngle = Math.PI;
+      this.currentCameraAngle = Math.PI;
+    }
   }
 
   buildHUD() {
@@ -829,14 +898,16 @@ class SambungKataGame3D {
 
         this.updateAvatarBubbleCard(av.root, state.prompt, displayName);
 
-        // Skala membesar sedikit jika giliran aktif
-        av.bubbleSprite.scale.set(isCurrentTurn ? 3.9 : 3.2, isCurrentTurn ? 3.9 : 3.2, 1);
+        // Skala kartu sedikit membesar jika giliran aktif
+        av.bubbleSprite.scale.set(isCurrentTurn ? 3.3 : 2.6, isCurrentTurn ? 3.3 : 2.6, 1);
       });
 
       // Auto fokus kamera ke pemain yang sedang mendapat giliran (Auto Camera Switch)
       const activeAv = this.avatars[state.currentTurnId];
       if (activeAv) {
-        this.desiredFocusTarget.set(activeAv.root.position.x, 2.7, activeAv.root.position.z);
+        if (activeAv.arenaAngle !== undefined) {
+          this.targetCameraAngle = activeAv.arenaAngle;
+        }
         // Reset yaw sehingga kamera otomatis menatap lurus pemain yang aktif
         this.orbitYaw = 0;
       }
@@ -1003,21 +1074,50 @@ class SambungKataGame3D {
     const delta = this.clock.getDelta();
     const time = this.clock.getElapsedTime();
 
-    // 🎥 Kamera Auto-Switch Smooth ke Pemain Aktif
-    this.focusTarget.lerp(this.desiredFocusTarget, 0.08);
+    const totalPlayers = Object.keys(this.avatars).length;
 
-    // 🎥 Kamera Orbit 360° yang bisa digeser-geser user
-    const cosPitch = Math.cos(this.orbitPitch);
-    const sinPitch = Math.sin(this.orbitPitch);
-    const sinYaw = Math.sin(this.orbitYaw);
-    const cosYaw = Math.cos(this.orbitYaw);
+    if (totalPlayers <= 1) {
+      // 1 Pemain: Kamera tetap membingkai pemain solo di tengah
+      const camDist = this.orbitDist || 5.6;
+      const cosPitch = Math.cos(this.orbitPitch);
+      const sinPitch = Math.sin(this.orbitPitch);
+      const sinYaw = Math.sin(this.orbitYaw);
+      const cosYaw = Math.cos(this.orbitYaw);
 
-    const camX = this.focusTarget.x + this.orbitDist * cosPitch * sinYaw;
-    const camY = this.focusTarget.y + this.orbitDist * sinPitch + 0.7;
-    const camZ = this.focusTarget.z + this.orbitDist * cosPitch * cosYaw;
+      const camX = camDist * cosPitch * sinYaw;
+      const camY = 2.6 + camDist * sinPitch + 0.6;
+      const camZ = camDist * cosPitch * cosYaw;
 
-    this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(this.focusTarget);
+      this.camera.position.set(camX, camY, camZ);
+      this.camera.lookAt(0, 2.6, 0);
+    } else {
+      // 2 Pemain (Berhadapan) atau 3+ Pemain (Melingkar):
+      // Interpolasi sudut kamera terpendek (shortest angular lerp) mengelilingi panggung
+      if (this.targetCameraAngle !== undefined) {
+        let diff = this.targetCameraAngle - this.currentCameraAngle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        this.currentCameraAngle += diff * 0.08;
+      }
+
+      const r = this.arenaRadius || 3.4;
+      const targetX = Math.cos(this.currentCameraAngle) * r;
+      const targetZ = Math.sin(this.currentCameraAngle) * r;
+      const targetY = 2.6; // Fokus setinggi dada/wajah
+
+      // Kamera berada di depan pemain (melihat wajah dan kartu secara lurus)
+      const camDist = this.orbitDist || 5.6;
+      const effectiveAngle = this.currentCameraAngle + Math.PI + this.orbitYaw;
+      const cosPitch = Math.cos(this.orbitPitch);
+      const sinPitch = Math.sin(this.orbitPitch);
+
+      const camX = targetX + camDist * cosPitch * Math.cos(effectiveAngle);
+      const camZ = targetZ + camDist * cosPitch * Math.sin(effectiveAngle);
+      const camY = targetY + camDist * sinPitch + 0.6;
+
+      this.camera.position.set(camX, camY, camZ);
+      this.camera.lookAt(targetX, targetY, targetZ);
+    }
 
     // Animasi Avatar Roblox
     Object.keys(this.avatars).forEach(id => {
@@ -1028,7 +1128,7 @@ class SambungKataGame3D {
       const idleBob = Math.sin(av.animTime * 2.8) * 0.04;
       av.torso.position.y = 2.05 + idleBob;
       av.head.position.y = 3.25 + idleBob * 1.2;
-      av.bubbleSprite.position.y = 5.6 + idleBob * 1.5;
+      av.bubbleSprite.position.y = 5.2 + idleBob * 1.5;
 
       // Gerakan tangan santai
       av.leftArm.rotation.x = Math.sin(av.animTime * 2.8) * 0.08;
