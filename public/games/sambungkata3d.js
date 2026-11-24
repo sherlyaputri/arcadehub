@@ -48,9 +48,9 @@ class SambungKataGame3D {
     this.scene.fog = new THREE.FogExp2(0xfb923c, 0.009);
 
     // Camera - Posisi close-up potret Roblox (Persis Gambar Referensi)
-    this.camera = new THREE.PerspectiveCamera(46, this.width / this.height, 0.1, 800);
-    this.camera.position.set(0, 3.6, 7.8);
-    this.camera.lookAt(0, 3.2, 0);
+    this.camera = new THREE.PerspectiveCamera(54, this.width / this.height, 0.1, 800);
+    this.camera.position.set(0, 3.4, 4.8);
+    this.camera.lookAt(0, 3.4, 0);
 
     // Orbit Controls & Auto Focus Target
     this.orbitYaw = 0;
@@ -105,10 +105,10 @@ class SambungKataGame3D {
   // Hitung jarak kamera ideal agar avatar & kartu 3D muat rapi di Laptop maupun HP
   getOptimalCamDist() {
     const aspect = (this.width || 1200) / (this.height || 750);
-    if (aspect < 0.75) return 9.5; // HP Layar Portrait ramping
-    if (aspect < 1.0) return 8.8;  // HP Portrait lebar / Tablet
-    if (aspect < 1.4) return 8.2;  // Laptop sedang
-    return 7.6; // Laptop / Desktop widescreen
+    if (aspect < 0.75) return 5.2; // HP Layar Portrait ramping
+    if (aspect < 1.0) return 4.9;  // HP Portrait lebar / Tablet
+    if (aspect < 1.4) return 4.7;  // Laptop sedang
+    return 4.5; // Laptop / Desktop widescreen
   }
 
   // 🎮 Kontrol Kamera Geser / Orbit 360° & Zoom
@@ -452,8 +452,8 @@ class SambungKataGame3D {
     const bubbleTexture = new THREE.CanvasTexture(bubbleCanvas);
     const bubbleMat = new THREE.SpriteMaterial({ map: bubbleTexture, transparent: true });
     const bubbleSprite = new THREE.Sprite(bubbleMat);
-    bubbleSprite.position.set(0, 5.0, 0);
-    bubbleSprite.scale.set(2.7, 2.7, 1);
+    bubbleSprite.position.set(0, 4.4, 0);
+    bubbleSprite.scale.set(2.2, 2.2, 1);
     avatar.add(bubbleSprite);
 
     // Simpan data render bubble
@@ -1098,7 +1098,7 @@ class SambungKataGame3D {
         this.updateAvatarBubbleCard(av.root, state.prompt, displayName);
 
         // Skala kartu sedikit membesar jika giliran aktif
-        av.bubbleSprite.scale.set(isCurrentTurn ? 3.3 : 2.6, isCurrentTurn ? 3.3 : 2.6, 1);
+        av.bubbleSprite.scale.set(isCurrentTurn ? 2.3 : 1.9, isCurrentTurn ? 2.3 : 1.9, 1);
       });
 
       // Auto fokus kamera ke pemain yang sedang mendapat giliran (Auto Camera Switch)
@@ -1275,6 +1275,7 @@ class SambungKataGame3D {
 
     const totalPlayers = Object.keys(this.avatars).length;
     const baseDist = this.orbitDist || this.getOptimalCamDist();
+    const targetY = 3.4;
 
     if (totalPlayers <= 1) {
       // 1 Pemain: Kamera tetap membingkai pemain solo di tengah
@@ -1284,11 +1285,11 @@ class SambungKataGame3D {
       const cosYaw = Math.cos(this.orbitYaw);
 
       const camX = baseDist * cosPitch * sinYaw;
-      const camY = 3.2 + baseDist * sinPitch + 0.3;
+      const camY = targetY + baseDist * sinPitch;
       const camZ = baseDist * cosPitch * cosYaw;
 
       this.camera.position.set(camX, camY, camZ);
-      this.camera.lookAt(0, 3.2, 0);
+      this.camera.lookAt(0, targetY, 0);
     } else {
       // 2 Pemain (Berhadapan) atau 3+ Pemain (Melingkar):
       // Interpolasi sudut kamera terpendek (shortest angular lerp) mengelilingi panggung
@@ -1302,20 +1303,33 @@ class SambungKataGame3D {
       const r = this.arenaRadius || 3.4;
       const targetX = Math.cos(this.currentCameraAngle) * r;
       const targetZ = Math.sin(this.currentCameraAngle) * r;
-      const targetY = 3.2; // Titik fokus setinggi 3.2 (antara kepala dan kartu)
 
-      // Kamera berada di depan pemain (melihat wajah dan kartu secara utuh)
-      const effectiveAngle = this.currentCameraAngle + Math.PI + this.orbitYaw;
+      // Kamera berada di depan pemain dengan offset sudut 0.28 rad (~16°)
+      // agar terhindar dari tabrakan atau terhalang oleh pemain lawan di seberang
+      const sideAngleOffset = 0.28;
+      const effectiveAngle = this.currentCameraAngle + Math.PI + sideAngleOffset + this.orbitYaw;
       const cosPitch = Math.cos(this.orbitPitch);
       const sinPitch = Math.sin(this.orbitPitch);
 
       const camX = targetX + baseDist * cosPitch * Math.cos(effectiveAngle);
       const camZ = targetZ + baseDist * cosPitch * Math.sin(effectiveAngle);
-      const camY = targetY + baseDist * sinPitch + 0.3;
+      const camY = targetY + baseDist * sinPitch;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(targetX, targetY, targetZ);
     }
+
+    // Bulletproof Occlusion Prevention: Sembunyikan pemain lain jika terlalu dekat dengan kamera
+    Object.keys(this.avatars).forEach(id => {
+      const av = this.avatars[id];
+      const isCurrentActive = this.gameState && this.gameState.currentTurnId === id;
+      const distToCam = this.camera.position.distanceTo(av.root.position);
+      if (!isCurrentActive && distToCam < 2.2) {
+        av.root.visible = false;
+      } else {
+        av.root.visible = true;
+      }
+    });
 
     // Animasi Avatar Roblox
     Object.keys(this.avatars).forEach(id => {
@@ -1326,7 +1340,7 @@ class SambungKataGame3D {
       const idleBob = Math.sin(av.animTime * 2.8) * 0.04;
       av.torso.position.y = 2.05 + idleBob;
       av.head.position.y = 3.25 + idleBob * 1.2;
-      av.bubbleSprite.position.y = 5.0 + idleBob * 1.5;
+      av.bubbleSprite.position.y = 4.4 + idleBob * 1.5;
 
       // Gerakan tangan santai
       av.leftArm.rotation.x = Math.sin(av.animTime * 2.8) * 0.08;
