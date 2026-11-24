@@ -477,7 +477,9 @@ body {
   position: relative;
   width: 100%;
   max-width: 1200px;
-  height: 750px;
+  height: calc(100vh - 145px);
+  max-height: 720px;
+  min-height: 440px;
   background: #000;
   border-radius: 16px;
   overflow: hidden;
