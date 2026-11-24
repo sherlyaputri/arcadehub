@@ -276,20 +276,38 @@ class SambungKataGame3D {
   }
 
   // 🧑‍🎨 Pembuatan Karakter Roblox 3D Lengkap dengan Wajah Kacamata & Rambut Anime (Persis Gambar)
-  createRobloxAvatar(player) {
+  createRobloxAvatar(player, playerIndex = 0) {
     const avatar = new THREE.Group();
-    const outfitColor = player.color ? new THREE.Color(player.color) : new THREE.Color(0x18181b);
+
+    // Palet warna hoodie & outfit keren untuk tiap pemain agar tidak hitam semua
+    const OUTFIT_PALETTE = [
+      { outfit: 0x2563eb, pants: 0x1e293b, hair: 0x09090b }, // Player 1: Royal Blue
+      { outfit: 0xd97706, pants: 0x1c1917, hair: 0x18181b }, // Player 2: Sunset Amber / Gold
+      { outfit: 0x059669, pants: 0x111827, hair: 0x27272a }, // Player 3: Emerald Green
+      { outfit: 0x7c3aed, pants: 0x1e1b4b, hair: 0x09090b }, // Player 4: Neon Purple
+      { outfit: 0xef4444, pants: 0x18181b, hair: 0x171717 }, // Player 5: Crimson Red
+      { outfit: 0x0891b2, pants: 0x134e4a, hair: 0x18181b }, // Player 6: Cyan Aqua
+      { outfit: 0xdb2777, pants: 0x18181b, hair: 0x0f172a }, // Player 7: Magenta Pink
+      { outfit: 0x475569, pants: 0x0f172a, hair: 0x09090b }, // Player 8: Slate Gray
+    ];
+
+    const pal = OUTFIT_PALETTE[playerIndex % OUTFIT_PALETTE.length];
+    const outfitColor = player.color ? new THREE.Color(player.color) : new THREE.Color(pal.outfit);
+    const pantsColor = new THREE.Color(pal.pants);
+    const hairColor = new THREE.Color(pal.hair);
+    const outfitHex = '#' + outfitColor.getHexString();
 
     // Bahan Kulit (Skin Tone)
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.7 });
-    // Bahan Baju / Hoodie (Black Jacket seperti foto)
-    const outfitMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.85 });
-    // Bahan Rambut Hitam
-    const hairMat = new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.9 });
+    // Bahan Baju / Hoodie (Warna unik per pemain!)
+    const outfitMat = new THREE.MeshStandardMaterial({ color: outfitColor, roughness: 0.85 });
+    // Bahan Rambut
+    const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.9 });
+    // Bahan Celana
+    const pantsMat = new THREE.MeshStandardMaterial({ color: pantsColor, roughness: 0.9 });
 
     // 1. Kaki Kiri & Kanan (Legs)
     const legGeo = new THREE.BoxGeometry(0.48, 1.35, 0.48);
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 });
     const leftLeg = new THREE.Mesh(legGeo, pantsMat);
     leftLeg.position.set(-0.32, 0.68, 0);
     leftLeg.castShadow = true;
@@ -312,7 +330,7 @@ class SambungKataGame3D {
     shirtCanvas.width = 128;
     shirtCanvas.height = 128;
     const sctx = shirtCanvas.getContext('2d');
-    sctx.fillStyle = '#18181b';
+    sctx.fillStyle = outfitHex;
     sctx.fillRect(0, 0, 128, 128);
     // Lingkaran motif putih
     sctx.strokeStyle = '#ffffff';
@@ -324,7 +342,7 @@ class SambungKataGame3D {
     sctx.beginPath();
     sctx.arc(64, 64, 18, 0, Math.PI * 2);
     sctx.fill();
-    sctx.fillStyle = '#18181b';
+    sctx.fillStyle = outfitHex;
     sctx.font = 'bold 20px sans-serif';
     sctx.textAlign = 'center';
     sctx.textBaseline = 'middle';
@@ -648,7 +666,7 @@ class SambungKataGame3D {
     this.arenaRadius = circleRadius;
 
     playersArr.forEach((p, idx) => {
-      const avatarObj = this.createRobloxAvatar(p);
+      const avatarObj = this.createRobloxAvatar(p, idx);
 
       let xPos = 0;
       let zPos = 0;
