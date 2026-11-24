@@ -477,8 +477,7 @@ body {
   position: relative;
   width: 100%;
   max-width: 1200px;
-  height: min(700px, calc(100vh - 120px));
-  min-height: 420px;
+  height: 750px;
   background: #000;
   border-radius: 16px;
   overflow: hidden;
@@ -487,14 +486,6 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-@media (max-width: 768px) {
-  .arena-viewport {
-    height: min(640px, calc(100dvh - 100px));
-    min-height: 380px;
-    border-radius: 12px;
-  }
 }
 
 #racingCanvas {
