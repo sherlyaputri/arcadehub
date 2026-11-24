@@ -51,7 +51,7 @@ class SambungKataGame3D {
     this.camera = new THREE.PerspectiveCamera(46, this.width / this.height, 0.1, 800);
     const initialDist = this.getOptimalCamDist();
     this.camera.position.set(0, 3.6, initialDist);
-    this.camera.lookAt(0, 3.2, 0);
+    this.camera.lookAt(0, 3.6, 0);
 
     // Orbit Controls & Auto Focus Target
     this.orbitYaw = 0;
@@ -106,10 +106,10 @@ class SambungKataGame3D {
   // Hitung jarak kamera ideal agar avatar & kartu 3D muat rapi di Laptop maupun HP
   getOptimalCamDist() {
     const aspect = (this.width || 1200) / (this.height || 750);
-    if (aspect < 0.75) return 9.5; // HP Layar Portrait ramping (terbukti rapih di HP)
-    if (aspect < 1.0) return 9.5;  // HP Portrait lebar / Tablet
-    if (aspect < 1.4) return 10.0; // Laptop sedang
-    return 10.5;                   // Laptop / Desktop widescreen (lega, kartu & avatar pas)
+    if (aspect < 0.75) return 9.0; // HP Layar Portrait (bersih, proporsional, kartu pas)
+    if (aspect < 1.0) return 8.6;  // HP Portrait lebar / Tablet
+    if (aspect < 1.4) return 8.4;  // Laptop sedang
+    return 8.2;                    // Desktop / Laptop widescreen (bersih rapi persis screenshot)
   }
 
   // 🎮 Kontrol Kamera Geser / Orbit 360° & Zoom
@@ -1098,8 +1098,8 @@ class SambungKataGame3D {
 
         this.updateAvatarBubbleCard(av.root, state.prompt, displayName);
 
-        // Skala kartu sedikit membesar jika giliran aktif
-        av.bubbleSprite.scale.set(isCurrentTurn ? 3.3 : 2.6, isCurrentTurn ? 3.3 : 2.6, 1);
+        // Skala kartu proporsional agar tidak spam screen
+        av.bubbleSprite.scale.set(isCurrentTurn ? 2.8 : 2.5, isCurrentTurn ? 2.8 : 2.5, 1);
       });
 
       // Auto fokus kamera ke pemain yang sedang mendapat giliran (Auto Camera Switch)
@@ -1108,8 +1108,10 @@ class SambungKataGame3D {
         if (activeAv.arenaAngle !== undefined) {
           this.targetCameraAngle = activeAv.arenaAngle;
         }
-        // Reset yaw sehingga kamera otomatis menatap lurus pemain yang aktif
+        // Reset sudut & jarak ke default bersih jika giliran berganti
         this.orbitYaw = 0;
+        this.orbitPitch = 0;
+        this.orbitDist = this.getOptimalCamDist();
       }
     };
 
@@ -1277,6 +1279,8 @@ class SambungKataGame3D {
     const totalPlayers = Object.keys(this.avatars).length;
     const baseDist = this.orbitDist || this.getOptimalCamDist();
 
+    const targetY = 3.6; // Titik fokus setinggi 3.6 (antara kepala dan kartu melayang)
+
     if (totalPlayers <= 1) {
       // 1 Pemain: Kamera tetap membingkai pemain solo di tengah
       const cosPitch = Math.cos(this.orbitPitch);
@@ -1285,11 +1289,11 @@ class SambungKataGame3D {
       const cosYaw = Math.cos(this.orbitYaw);
 
       const camX = baseDist * cosPitch * sinYaw;
-      const camY = 3.2 + baseDist * sinPitch + 0.3;
+      const camY = targetY + baseDist * sinPitch;
       const camZ = baseDist * cosPitch * cosYaw;
 
       this.camera.position.set(camX, camY, camZ);
-      this.camera.lookAt(0, 3.2, 0);
+      this.camera.lookAt(0, targetY, 0);
     } else {
       // 2 Pemain (Berhadapan) atau 3+ Pemain (Melingkar):
       // Interpolasi sudut kamera terpendek (shortest angular lerp) mengelilingi panggung
@@ -1303,7 +1307,6 @@ class SambungKataGame3D {
       const r = this.arenaRadius || 3.4;
       const targetX = Math.cos(this.currentCameraAngle) * r;
       const targetZ = Math.sin(this.currentCameraAngle) * r;
-      const targetY = 3.2; // Titik fokus setinggi 3.2 (antara kepala dan kartu)
 
       // Kamera berada di depan pemain (melihat wajah dan kartu secara utuh)
       const effectiveAngle = this.currentCameraAngle + Math.PI + this.orbitYaw;
@@ -1312,7 +1315,7 @@ class SambungKataGame3D {
 
       const camX = targetX + baseDist * cosPitch * Math.cos(effectiveAngle);
       const camZ = targetZ + baseDist * cosPitch * Math.sin(effectiveAngle);
-      const camY = targetY + baseDist * sinPitch + 0.3;
+      const camY = targetY + baseDist * sinPitch;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(targetX, targetY, targetZ);
