@@ -829,6 +829,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('sambungkata:typing', ({ text }) => {
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    if (room.game !== 'sambungkata' || !room.gameData) return;
+    // Siarkan kata yang sedang diketik lawan ke seluruh pemain di dalam room
+    socket.to(currentRoomId).emit('sambungkata:playerTyping', {
+      playerId: socket.id,
+      text: (text || '').slice(0, 35)
+    });
+  });
+
   socket.on('sambungkata:submit', ({ word }) => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
@@ -873,6 +884,7 @@ io.on('connection', (socket) => {
 
     io.to(currentRoomId).emit('sambungkata:wordAccepted', {
       playerId: socket.id,
+      playerName: p ? p.name : 'Pemain',
       word: cleanWord,
       score: p ? p.score : 0,
       nextPrompt

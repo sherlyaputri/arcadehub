@@ -498,8 +498,8 @@ class SambungKataGame3D {
     ctx.closePath();
   }
 
-  // Gambar Kartu Putih Melayang dengan Bendera 🇮🇩, Ikon HP, dan Huruf Besar (Persis Screenshot)
-  updateAvatarBubbleCard(avatar, promptText, displayName) {
+  // Gambar Kartu Putih Melayang dengan Bendera 🇮🇩, Ikon HP, dan Huruf Besar / Teks Ketikan Lawan
+  updateAvatarBubbleCard(avatar, promptText, displayName, wordText, isAccepted = false) {
     const { bubbleCanvas, bubbleTexture, bctx } = avatar.userData;
     bctx.clearRect(0, 0, 512, 512);
 
@@ -513,16 +513,15 @@ class SambungKataGame3D {
     bctx.strokeText('Top 99+', 256, 48);
     bctx.fillText('Top 99+', 256, 48);
 
-    // 2. Display Name / Last Answered Word (contoh: MINAOTUR di foto)
+    // 2. Display Name Pemain (contoh: RACER_911)
     const upperText = (displayName || 'PEMAIN').toUpperCase();
     bctx.lineWidth = 9;
-    bctx.font = '900 46px sans-serif';
+    bctx.font = '900 44px sans-serif';
     bctx.strokeText(upperText, 256, 100);
     bctx.fillText(upperText, 256, 100);
     bctx.restore();
 
-    // 3. Ikon HP 📱 & Bendera Indonesia 🇮🇩 (Digambar presisi via Canvas Vector)
-    // A. Ikon Smartphone Putih-Hitam di sebelah kiri
+    // 3. Ikon HP 📱 & Bendera Indonesia 🇮🇩 (Vector Canvas)
     const phoneX = 222;
     const phoneY = 145;
     const phoneW = 28;
@@ -535,17 +534,14 @@ class SambungKataGame3D {
     bctx.fill();
     bctx.stroke();
 
-    // Layar HP Gelap
     bctx.fillStyle = '#0f172a';
     this.roundRectPath(bctx, phoneX - phoneW / 2 + 3.5, phoneY - phoneH / 2 + 5, phoneW - 7, phoneH - 12, 3);
     bctx.fill();
 
-    // Notch / Home bar
     bctx.fillStyle = '#ffffff';
     bctx.fillRect(phoneX - 4, phoneY + phoneH / 2 - 4.5, 8, 2);
     bctx.restore();
 
-    // B. Bendera Merah Putih Indonesia 🇮🇩 di sebelah kanan
     const flagX = 288;
     const flagY = 145;
     const flagW = 44;
@@ -553,16 +549,10 @@ class SambungKataGame3D {
     bctx.save();
     this.roundRectPath(bctx, flagX - flagW / 2, flagY - flagH / 2, flagW, flagH, 6);
     bctx.clip();
-
-    // Merah atas
     bctx.fillStyle = '#ef4444';
     bctx.fillRect(flagX - flagW / 2, flagY - flagH / 2, flagW, flagH / 2);
-
-    // Putih bawah
     bctx.fillStyle = '#ffffff';
     bctx.fillRect(flagX - flagW / 2, flagY, flagW, flagH / 2);
-
-    // Border bingkai bendera
     bctx.strokeStyle = '#334155';
     bctx.lineWidth = 2.5;
     this.roundRectPath(bctx, flagX - flagW / 2, flagY - flagH / 2, flagW, flagH, 6);
@@ -576,20 +566,60 @@ class SambungKataGame3D {
     bctx.shadowOffsetY = 10;
 
     bctx.fillStyle = '#ffffff';
-    bctx.strokeStyle = '#18181b';
+    bctx.strokeStyle = isAccepted ? '#10b981' : '#18181b';
     bctx.lineWidth = 14;
     this.roundRectPath(bctx, 116, 185, 280, 260, 48);
     bctx.fill();
     bctx.stroke();
     bctx.restore();
 
-    // 5. Huruf Prompt Besar di Tengah Kotak Putih (contoh: NJ atau TL)
+    // 5. ISI KARTU: Tampilkan Kata yang Sedang Diketik / Jawaban yang Diberikan Lawan
+    const activeText = (wordText || '').trim().toUpperCase();
+    const prompt = (promptText || 'AN').toUpperCase();
+
     bctx.save();
-    bctx.fillStyle = '#18181b';
-    bctx.font = '900 135px sans-serif';
-    bctx.textAlign = 'center';
-    bctx.textBaseline = 'middle';
-    bctx.fillText(promptText || 'NJ', 256, 315);
+    if (activeText) {
+      // Sedang mengetik kata atau baru saja menjawab kata
+      // Label atas
+      bctx.fillStyle = isAccepted ? '#059669' : '#d97706';
+      bctx.font = '800 22px sans-serif';
+      bctx.textAlign = 'center';
+      bctx.fillText(isAccepted ? '✅ JAWABAN BENAR' : `AWALAN [${prompt}]`, 256, 230);
+
+      // Kata yang diketik (Ukuran otomatis menyesuaikan panjang kata)
+      let fontSize = 68;
+      bctx.font = `900 ${fontSize}px sans-serif`;
+      while (fontSize > 22 && bctx.measureText(activeText).width > 240) {
+        fontSize -= 3;
+        bctx.font = `900 ${fontSize}px sans-serif`;
+      }
+
+      bctx.fillStyle = isAccepted ? '#059669' : '#0f172a';
+      bctx.textAlign = 'center';
+      bctx.textBaseline = 'middle';
+      bctx.fillText(activeText, 256, 310);
+
+      // Status bawah
+      bctx.fillStyle = '#64748b';
+      bctx.font = '700 18px sans-serif';
+      bctx.fillText(isAccepted ? '+100 Poin' : '✍️ sedang mengetik...', 256, 395);
+    } else {
+      // Belum mengetik kata: Tampilkan 2 huruf awalan besar standar
+      bctx.fillStyle = '#64748b';
+      bctx.font = '800 22px sans-serif';
+      bctx.textAlign = 'center';
+      bctx.fillText('AWALAN KATA:', 256, 230);
+
+      bctx.fillStyle = '#18181b';
+      bctx.font = '900 115px sans-serif';
+      bctx.textAlign = 'center';
+      bctx.textBaseline = 'middle';
+      bctx.fillText(prompt, 256, 315);
+
+      bctx.fillStyle = '#94a3b8';
+      bctx.font = '700 18px sans-serif';
+      bctx.fillText('Menunggu jawaban...', 256, 400);
+    }
     bctx.restore();
 
     bubbleTexture.needsUpdate = true;
@@ -1063,12 +1093,24 @@ class SambungKataGame3D {
       });
     }
 
+    this.inputEl.addEventListener('input', () => {
+      const val = this.inputEl.value;
+      this.socket.emit('sambungkata:typing', { text: val });
+      const myAv = this.avatars[this.selfId];
+      if (myAv) {
+        myAv.currentTypingText = val;
+        const myName = this.gameState?.playerData[this.selfId]?.name || myAv.playerName;
+        this.updateAvatarBubbleCard(myAv.root, this.gameState?.prompt, myName, val, false);
+      }
+    });
+
     this.formEl.addEventListener('submit', (e) => {
       e.preventDefault();
       const val = this.inputEl.value.trim();
       if (!val) return;
 
       this.socket.emit('sambungkata:submit', { word: val });
+      this.socket.emit('sambungkata:typing', { text: '' });
       this.inputEl.value = '';
     });
   }
@@ -1094,9 +1136,10 @@ class SambungKataGame3D {
         const av = this.avatars[id];
         const isCurrentTurn = id === state.currentTurnId;
         const pData = state.playerData[id];
-        const displayName = av.lastAnsweredWord || (pData ? pData.name : av.playerName);
+        const displayName = pData ? pData.name : av.playerName;
+        const activeText = isCurrentTurn ? (av.currentTypingText || '') : (av.lastAnsweredWord || '');
 
-        this.updateAvatarBubbleCard(av.root, state.prompt, displayName);
+        this.updateAvatarBubbleCard(av.root, state.prompt, displayName, activeText, !isCurrentTurn && !!av.lastAnsweredWord);
 
         // Skala kartu proporsional agar tidak spam screen
         av.bubbleSprite.scale.set(isCurrentTurn ? 2.8 : 2.5, isCurrentTurn ? 2.8 : 2.5, 1);
@@ -1115,16 +1158,33 @@ class SambungKataGame3D {
       }
     };
 
-    this.onWordAccepted = ({ playerId, word, score }) => {
+    this.onPlayerTyping = ({ playerId, text }) => {
+      const av = this.avatars[playerId];
+      if (av) {
+        av.currentTypingText = text;
+        const pData = this.gameState?.playerData[playerId];
+        const pName = pData ? pData.name : av.playerName;
+        this.updateAvatarBubbleCard(av.root, this.gameState?.prompt, pName, text, false);
+      }
+    };
+
+    this.onWordAccepted = ({ playerId, playerName, word, score }) => {
       if (window.soundManager) window.soundManager.playBeep(784, 0.25, 'sine');
       const av = this.avatars[playerId];
       if (av) {
         av.isJumping = true;
         av.jumpY = 0;
         av.lastAnsweredWord = word;
+        av.currentTypingText = '';
+        const pData = this.gameState?.playerData[playerId];
+        const pName = playerName || (pData ? pData.name : av.playerName);
+        this.updateAvatarBubbleCard(av.root, this.gameState?.prompt, pName, word, true);
       }
       if (playerId === this.selfId) {
         this.showFeedback(`✅ Kata "${word}" Benar! (+Skor)`, true);
+      } else {
+        const pName = playerName || this.gameState?.playerData[playerId]?.name || 'Lawan';
+        this.showFeedback(`💬 ${pName} menjawab: "${word}"`, true);
       }
     };
 
@@ -1141,6 +1201,7 @@ class SambungKataGame3D {
     };
 
     this.socket.on('sambungkata:update', this.onStateUpdate);
+    this.socket.on('sambungkata:playerTyping', this.onPlayerTyping);
     this.socket.on('sambungkata:wordAccepted', this.onWordAccepted);
     this.socket.on('sambungkata:timeout', this.onTimeout);
     this.socket.on('sambungkata:invalid', this.onInvalidWord);
@@ -1401,6 +1462,7 @@ class SambungKataGame3D {
     }
     if (this.socket) {
       this.socket.off('sambungkata:update', this.onStateUpdate);
+      this.socket.off('sambungkata:playerTyping', this.onPlayerTyping);
       this.socket.off('sambungkata:wordAccepted', this.onWordAccepted);
       this.socket.off('sambungkata:timeout', this.onTimeout);
       this.socket.off('sambungkata:invalid', this.onInvalidWord);
