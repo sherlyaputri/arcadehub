@@ -1321,12 +1321,18 @@ class SambungKataGame3D {
       this.camera.lookAt(targetX, targetY, targetZ);
     }
 
-    // Cegah layar tertutup badan lawan jika posisinya menempel lensa kamera
+    // Cegah layar tertutup badan lawan jika posisinya menempel/menghalangi lensa kamera
+    const activeId = (this.gameState && this.gameState.currentTurnId) || Object.keys(this.avatars)[0];
     Object.keys(this.avatars).forEach(id => {
       const av = this.avatars[id];
-      if (this.gameState && this.gameState.currentTurnId && id !== this.gameState.currentTurnId) {
-        const distToCam = this.camera.position.distanceTo(av.root.position);
-        av.root.visible = distToCam >= 2.5;
+      if (id !== activeId) {
+        // Hitung jarak horizontal (XZ) antara lensa kamera dan pemain lawan
+        const horizDist = Math.hypot(
+          this.camera.position.x - av.root.position.x,
+          this.camera.position.z - av.root.position.z
+        );
+        // Sembunyikan lawan yang berada di dekat kamera (< 3.2 unit) agar layar tidak tertutup
+        av.root.visible = horizDist >= 3.2;
       } else {
         av.root.visible = true;
       }
