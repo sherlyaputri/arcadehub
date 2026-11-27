@@ -227,7 +227,8 @@ function renderLobby() {
     sambungkata: '🔤 Sambung Kata 3D (Roblox Style)',
     quiz: '🧠 Quiz Trivia Showdown',
     territory: '⚔️ Territory Conquest (Perebutan Wilayah)',
-    tictactoe: '⚔️ Territory Conquest (Perebutan Wilayah)'
+    tictactoe: '⚔️ Territory Conquest (Perebutan Wilayah)',
+    tennis: '🎾 Tennis Duel (1v1 Real-time)'
   };
 
   const categoryTitles = {
@@ -324,7 +325,8 @@ function launchGame(gameId) {
     sambungkata: '🔤 Sambung Kata 3D',
     territory: isMobile ? '⚔️ Territory Conquest' : '⚔️ Territory Conquest (Perebutan Wilayah)',
     tictactoe: isMobile ? '⚔️ Territory Conquest' : '⚔️ Territory Conquest (Perebutan Wilayah)',
-    quiz: isMobile ? '🧠 Quiz Trivia' : '🧠 Quiz Trivia Showdown'
+    quiz: isMobile ? '🧠 Quiz Trivia' : '🧠 Quiz Trivia Showdown',
+    tennis: isMobile ? '🎾 Tennis Duel' : '🎾 Tennis Duel (1v1 Real-time)'
   };
   arenaGameTitle.textContent = gameTitles[gameId] || gameId;
 
@@ -361,6 +363,11 @@ function launchGame(gameId) {
   } else if (gameId === 'quiz') {
     domGameContainer.style.display = 'flex';
     activeGameInstance = new window.QuizGame(domGameContainer, socket, currentRoom, selfId);
+  } else if (gameId === 'tennis') {
+    domGameContainer.style.display = 'flex';
+    if (window.TennisGame) {
+      activeGameInstance = new window.TennisGame(domGameContainer, socket, currentRoom, selfId);
+    }
   }
 }
 

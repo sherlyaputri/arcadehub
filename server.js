@@ -37,6 +37,7 @@ const rooms = {};
 const AVAILABLE_GAMES = [
   { id: 'racing', name: '🚜 Mining Rally 3D (Balap Tambang & Konstruksi)', minPlayers: 1, maxPlayers: 8 },
   { id: 'quiz', name: '🧠 Quiz Trivia Showdown', minPlayers: 1, maxPlayers: 12 },
+  { id: 'tennis', name: '🎾 Tennis Duel (1v1 Real-time)', minPlayers: 1, maxPlayers: 2 },
   { id: 'territory', name: '⚔️ Territory Conquest (Perebutan Wilayah)', minPlayers: 2, maxPlayers: 2 },
   { id: 'sambungkata', name: '🔤 Sambung Kata 3D (Roblox Style)', minPlayers: 1, maxPlayers: 8 },
   { id: 'tictactoe', name: '⚔️ Territory Conquest (Perebutan Wilayah)', minPlayers: 2, maxPlayers: 2 }
@@ -897,6 +898,32 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoomId];
     initSambungKataGame(room);
     io.to(currentRoomId).emit('sambungkata:update', room.gameData);
+  });
+
+  // =================== TENNIS 1v1 ===================
+  socket.on('tennis:state', (data) => {
+    if (!currentRoomId) return;
+    socket.to(currentRoomId).emit('tennis:state', data);
+  });
+
+  socket.on('tennis:paddle', (data) => {
+    if (!currentRoomId) return;
+    socket.to(currentRoomId).emit('tennis:paddle', data);
+  });
+
+  socket.on('tennis:point', (data) => {
+    if (!currentRoomId) return;
+    socket.to(currentRoomId).emit('tennis:point', data);
+  });
+
+  socket.on('tennis:gameover', (data) => {
+    if (!currentRoomId) return;
+    socket.to(currentRoomId).emit('tennis:gameover', data);
+  });
+
+  socket.on('tennis:restart', () => {
+    if (!currentRoomId) return;
+    io.to(currentRoomId).emit('tennis:restart');
   });
 
   // =================== DISCONNECT ===================
