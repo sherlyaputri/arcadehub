@@ -1,5 +1,5 @@
 // 🎾 ArcadeHub Tennis 3D - Third-Person Behind-the-Player View (Roblox Style)
-// Inspired by Roblox Tennis Zero: Clay Court, Beach & Stadium, Behind-the-Back Camera
+// Full Interactive Controls: Move (WASD), Jump (Space), Serve & Power Smash (Mouse / J / Touch)
 
 class TennisGame {
   constructor(container, socket, roomInfo, selfId) {
@@ -24,15 +24,15 @@ class TennisGame {
     this.COURT_HALF_W = 6.5;  // Singles width: X = -6.5 to +6.5
     this.NET_Z = 0;
     this.NET_H = 1.35;
-    this.PADDLE_W = 2.0;      // Hit tolerance in X
     this.BALL_R = 0.22;
 
     // Game state - P1 (host) is authoritative
     this.gs = {
-      ball: { x: 0, y: 1.5, z: 0, vx: 0, vy: 0, vz: 0, bounces: 0 },
-      near: { x: 0, z: this.COURT_HALF_L, score: 0 }, // Near player (+Z)
-      far: { x: 0, z: -this.COURT_HALF_L, score: 0 },  // Far player (-Z)
-      status: 'countdown', // countdown | playing | point | finished
+      ball: { x: 0, y: 1.5, z: 0, vx: 0, vy: 0, vz: 0, isSmash: false },
+      near: { x: 0, y: 0, z: this.COURT_HALF_L, vy: 0, isJumping: false, score: 0 }, // Near player (+Z)
+      far: { x: 0, y: 0, z: -this.COURT_HALF_L, vy: 0, isJumping: false, score: 0 },  // Far player (-Z)
+      status: 'countdown', // countdown | waiting_serve | playing | point | finished
+      server: 'near',      // 'near' | 'far'
       maxScore: 7,
       winner: null,
       rally: 0
@@ -41,6 +41,7 @@ class TennisGame {
     this.cdCount = 3;
     this.cdInterval = null;
     this.keys = {};
+    this.shakeTimer = 0;
 
     this.initThree();
     this.buildCourt();
@@ -70,12 +71,14 @@ class TennisGame {
 
     // If local player is P2, put camera behind far side looking at +Z
     if (this.isP2) {
-      this.camera.position.set(0, 5.6, -22.5);
-      this.camera.lookAt(0, 1.8, 4.0);
+      this.baseCamPos = new THREE.Vector3(0, 5.6, -22.5);
+      this.camTarget = new THREE.Vector3(0, 1.8, 4.0);
     } else {
-      this.camera.position.set(0, 5.6, 22.5);
-      this.camera.lookAt(0, 1.8, -4.0);
+      this.baseCamPos = new THREE.Vector3(0, 5.6, 22.5);
+      this.camTarget = new THREE.Vector3(0, 1.8, -4.0);
     }
+    this.camera.position.copy(this.baseCamPos);
+    this.camera.lookAt(this.camTarget);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(this.width, this.height);
@@ -209,7 +212,7 @@ class TennisGame {
 
     this.scene.add(netGroup);
 
-    // 6. Court Side Barriers with Cyan Neon Strip (matching screenshot)
+    // 6. Court Side Barriers with Cyan Neon Strip
     const barrierMat = new THREE.MeshStandardMaterial({ color: 0xe0742a });
     const neonMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     [-11.5, 11.5].forEach(x => {
@@ -285,7 +288,6 @@ class TennisGame {
       spk.position.set(x, 8.8, -8);
       bgGroup.add(spk);
 
-      // Orange pillar accents
       const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.8, 12, 1.8), new THREE.MeshStandardMaterial({ color: 0xf97316 }));
       pillar.position.set(x, 6, -8);
       bgGroup.add(pillar);
@@ -311,7 +313,7 @@ class TennisGame {
     ctx.lineWidth = 10;
     ctx.strokeRect(10, 10, w - 20, h - 20);
 
-    // Glowing Header: TENNIS ZERO / ARCADEHUB
+    // Glowing Header
     ctx.fillStyle = '#22d3ee';
     ctx.font = '900 52px system-ui, sans-serif';
     ctx.textAlign = 'center';
@@ -366,7 +368,6 @@ class TennisGame {
       tg.position.set(x, 0, z);
       tg.scale.set(scale, scale, scale);
 
-      // Curved trunk
       for (let s = 0; s < 7; s++) {
         const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.38 - s * 0.02, 0.42 - s * 0.02, 1.2, 7), trunkMat);
         seg.position.set(Math.sin(s * 0.25) * 0.4, 0.6 + s * 1.15, 0);
@@ -375,7 +376,6 @@ class TennisGame {
         tg.add(seg);
       }
 
-      // Leaves
       const topY = 8.4;
       const topX = Math.sin(6 * 0.25) * 0.4;
       for (let l = 0; l < 8; l++) {
@@ -390,21 +390,12 @@ class TennisGame {
       this.scene.add(tg);
     };
 
-    // Plant palm trees on left beach
-    [-18, -22, -26].forEach((x, i) => {
-      createTree(x, -12 + i * 14, 1.1 + (i % 2) * 0.15);
-    });
-
-    // Plant palm trees on right beach
-    [18, 22, 26].forEach((x, i) => {
-      createTree(x, -10 + i * 14, 1.15 + (i % 2) * 0.1);
-    });
+    [-18, -22, -26].forEach((x, i) => createTree(x, -12 + i * 14, 1.1 + (i % 2) * 0.15));
+    [18, 22, 26].forEach((x, i) => createTree(x, -10 + i * 14, 1.15 + (i % 2) * 0.1));
   }
 
   buildBeachProps() {
-    // Beach umbrellas (red & white alternating)
     const umbrellaMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
-    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
     const poleMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db });
 
     const createUmbrella = (x, z) => {
@@ -425,7 +416,6 @@ class TennisGame {
     createUmbrella(15, -4);
     createUmbrella(-15, -8);
 
-    // Big Beach ball on right stand (matching screenshot)
     const ballMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3 });
     const bb = new THREE.Mesh(new THREE.SphereGeometry(2.0, 14, 10), ballMat);
     bb.position.set(16, 3.5, -20);
@@ -434,17 +424,31 @@ class TennisGame {
 
   // ==================== CHARACTERS (ROBLOX STYLE) ====================
   buildCharacters() {
-    // Near Player: stands at Z = +COURT_HALF_L (faces -Z, back to camera!)
+    // Near Player: stands at Z = +COURT_HALF_L (faces -Z, back to camera)
     this.charNear = this.createRobloxCharacter(0, this.p1?.name || 'P1', this.p1?.color || '#3b82f6');
     this.charNear.root.position.set(0, 0, this.COURT_HALF_L);
-    this.charNear.root.rotation.y = Math.PI; // Face towards net (-Z), BACK to camera
+    this.charNear.root.rotation.y = Math.PI;
     this.scene.add(this.charNear.root);
 
     // Far Player (Opponent or Bot): stands at Z = -COURT_HALF_L (faces +Z, towards net)
     this.charFar = this.createRobloxCharacter(1, this.p2?.name || (this.isSolo ? 'BOT' : 'P2'), this.p2?.color || '#ef4444');
     this.charFar.root.position.set(0, 0, -this.COURT_HALF_L);
-    this.charFar.root.rotation.y = 0; // Face towards net (+Z)
+    this.charFar.root.rotation.y = 0;
     this.scene.add(this.charFar.root);
+
+    // Player Ground Shadows
+    const shadowGeo = new THREE.CircleGeometry(0.7, 14);
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32 });
+
+    this.nearShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    this.nearShadow.rotation.x = -Math.PI / 2;
+    this.nearShadow.position.set(0, 0.11, this.COURT_HALF_L);
+    this.scene.add(this.nearShadow);
+
+    this.farShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    this.farShadow.rotation.x = -Math.PI / 2;
+    this.farShadow.position.set(0, 0.11, -this.COURT_HALF_L);
+    this.scene.add(this.farShadow);
 
     // Rackets attached to right arms
     this.racketNear = this.buildRacket(this.p1?.color || 0x3b82f6);
@@ -511,16 +515,13 @@ class TennisGame {
     const ctx = headCanvas.getContext('2d');
     ctx.fillStyle = '#d4a373';
     ctx.fillRect(0, 0, 256, 256);
-    // Glasses
     ctx.fillStyle = '#111827';
     ctx.fillRect(35, 95, 75, 45);
     ctx.fillRect(146, 95, 75, 45);
     ctx.fillRect(110, 110, 36, 12);
-    // White eye shine
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(50, 105, 20, 20);
     ctx.fillRect(160, 105, 20, 20);
-    // Smile
     ctx.fillStyle = '#854d0e';
     ctx.fillRect(100, 180, 56, 10);
 
@@ -528,8 +529,8 @@ class TennisGame {
     const headGeo = new THREE.BoxGeometry(1.15, 1.15, 1.15);
     const headMats = [
       skinMat, skinMat, skinMat, skinMat,
-      new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.7 }), // Front (+Z)
-      skinMat // Back (-Z)
+      new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.7 }),
+      skinMat
     ];
     const head = new THREE.Mesh(headGeo, headMats);
     head.position.set(0, 3.25, 0);
@@ -547,7 +548,7 @@ class TennisGame {
       { x: 0.42,  y: 3.66, z: 0.54, w: 0.22, h: 0.48 },
       { x: -0.58, y: 3.45, z: 0.1,  w: 0.20, h: 0.75 },
       { x: 0.58,  y: 3.45, z: 0.1,  w: 0.20, h: 0.75 },
-      { x: 0.0,   y: 3.50, z: -0.56, w: 1.1,  h: 0.70 }, // Back hair
+      { x: 0.0,   y: 3.50, z: -0.56, w: 1.1,  h: 0.70 },
     ];
     bangs.forEach(b => {
       const bm = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, 0.32), hairMat);
@@ -555,12 +556,11 @@ class TennisGame {
       root.add(bm);
     });
 
-    return { root, head, torso, leftArm, rightArm, leftLeg, rightLeg, animTime: 0 };
+    return { root, head, torso, leftArm, rightArm, leftLeg, rightLeg, animTime: 0, swingTime: 0 };
   }
 
   buildRacket(color) {
     const rg = new THREE.Group();
-    // Handle
     const handle = new THREE.Mesh(
       new THREE.CylinderGeometry(0.06, 0.07, 0.9, 6),
       new THREE.MeshStandardMaterial({ color: 0x78350f })
@@ -568,13 +568,11 @@ class TennisGame {
     handle.position.set(0, -0.45, 0);
     rg.add(handle);
 
-    // Frame
     const frameMat = new THREE.MeshStandardMaterial({ color: color || 0x3b82f6 });
     const frame = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.06, 6, 16), frameMat);
     frame.position.set(0, 0.45, 0);
     rg.add(frame);
 
-    // Strings grid
     const strMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
     for (let i = -3; i <= 3; i++) {
       const vStr = new THREE.Mesh(new THREE.BoxGeometry(0.02, 1.0, 0.02), strMat);
@@ -632,8 +630,9 @@ class TennisGame {
   // ==================== BALL ====================
   buildBall() {
     const geo = new THREE.SphereGeometry(this.BALL_R, 16, 12);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xd4f04a, roughness: 0.45, metalness: 0.05 });
-    this.ball3d = new THREE.Mesh(geo, mat);
+    this.ballMatRegular = new THREE.MeshStandardMaterial({ color: 0xd4f04a, roughness: 0.45, metalness: 0.05 });
+    this.ballMatSmash = new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff5500, emissiveIntensity: 0.6, roughness: 0.2 });
+    this.ball3d = new THREE.Mesh(geo, this.ballMatRegular);
     this.ball3d.castShadow = true;
     this.scene.add(this.ball3d);
 
@@ -667,29 +666,47 @@ class TennisGame {
         <span id="t3d-farscore" style="font-size:26px;font-weight:900;color:#fff;min-width:28px;text-align:center;">0</span>
         <span id="t3d-farname" style="font-weight:800;color:${this.p2?.color||'#ef4444'};font-size:14px;">${(this.p2?.name||(this.isSolo?'BOT':'P2')).slice(0,12)}</span>
       </div>
+      <div id="t3d-serve-prompt" style="text-align:center;font-size:15px;font-weight:900;color:#38bdf8;text-shadow:0 0 10px rgba(56,189,248,0.7);display:none;">
+        ⚡ TEKAN SMASH / SPACE UNTUK SERVIS!
+      </div>
       <div id="t3d-rally" style="text-align:center;font-size:13px;font-weight:800;color:#fbbf24;min-height:18px;"></div>
     `;
     this.container.appendChild(this.hud);
 
-    // Mobile controls (Left ◀ and Right ▶ buttons)
+    // Mobile controls: Directional Cluster (Left) + Action Buttons (Right)
     this.mobileCtrl = document.createElement('div');
     this.mobileCtrl.style.cssText = `
-      position: absolute; bottom: 14px; left: 0; right: 0;
+      position: absolute; bottom: 12px; left: 0; right: 0;
       display: ${(window.innerWidth <= 768 || 'ontouchstart' in window) ? 'flex' : 'none'};
-      justify-content: space-between; padding: 0 24px;
+      justify-content: space-between; align-items: flex-end; padding: 0 16px;
       z-index: 10; pointer-events: none;
     `;
     this.mobileCtrl.innerHTML = `
-      <button id="t3d-left" style="width:68px;height:68px;font-size:32px;border-radius:50%;background:rgba(15,23,42,0.88);border:2px solid #38bdf8;color:#fff;cursor:pointer;user-select:none;touch-action:none;pointer-events:auto;box-shadow:0 4px 14px rgba(0,0,0,0.4);">◀</button>
-      <button id="t3d-right" style="width:68px;height:68px;font-size:32px;border-radius:50%;background:rgba(15,23,42,0.88);border:2px solid #38bdf8;color:#fff;cursor:pointer;user-select:none;touch-action:none;pointer-events:auto;box-shadow:0 4px 14px rgba(0,0,0,0.4);">▶</button>
+      <!-- LEFT: D-PAD (Maju, Mundur, Kiri, Kanan) -->
+      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto;user-select:none;touch-action:none;gap:4px;">
+        <button id="t3d-up" style="width:56px;height:52px;font-size:24px;border-radius:14px;background:rgba(15,23,42,0.85);border:2px solid #38bdf8;color:#fff;cursor:pointer;">▲</button>
+        <div style="display:flex;gap:10px;">
+          <button id="t3d-left" style="width:56px;height:52px;font-size:24px;border-radius:14px;background:rgba(15,23,42,0.85);border:2px solid #38bdf8;color:#fff;cursor:pointer;">◀</button>
+          <button id="t3d-down" style="width:56px;height:52px;font-size:24px;border-radius:14px;background:rgba(15,23,42,0.85);border:2px solid #38bdf8;color:#fff;cursor:pointer;">▼</button>
+          <button id="t3d-right" style="width:56px;height:52px;font-size:24px;border-radius:14px;background:rgba(15,23,42,0.85);border:2px solid #38bdf8;color:#fff;cursor:pointer;">▶</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: ACTION BUTTONS (Lompat & Power Smash) -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:auto;user-select:none;touch-action:none;">
+        <button id="t3d-jump-btn" style="width:64px;height:64px;font-size:28px;border-radius:50%;background:linear-gradient(135deg,#0284c7,#0369a1);border:2px solid #38bdf8;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(2,132,199,0.5);">🦘</button>
+        <button id="t3d-smash-btn" style="width:76px;height:76px;font-size:32px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:3px solid #facc15;color:#fff;cursor:pointer;box-shadow:0 4px 20px rgba(239,68,68,0.7);font-weight:900;">⚡</button>
+      </div>
     `;
     this.container.appendChild(this.mobileCtrl);
     this._bindMobileCtrl();
 
-    // Controls guide badge
+    // Desktop Controls Guide Badge
     const role = document.createElement('div');
-    role.style.cssText = `position:absolute;bottom:${window.innerWidth<=768?86:8}px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);background:rgba(15,23,42,0.65);padding:4px 14px;border-radius:16px;white-space:nowrap;pointer-events:none;z-index:10;`;
-    role.textContent = 'Gunakan ◀ dan ▶ (atau A / D) untuk bergerak';
+    role.style.cssText = `position:absolute;bottom:${window.innerWidth<=768?140:10}px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:600;color:rgba(255,255,255,0.8);background:rgba(15,23,42,0.75);padding:6px 16px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);white-space:nowrap;pointer-events:none;z-index:10;`;
+    role.innerHTML = window.innerWidth <= 768
+      ? 'D-Pad: Gerak | 🦘: Lompat | ⚡: Smash / Servis'
+      : '🕹️ <b>WASD / Panah</b>: Gerak | <b>Space</b>: Lompat | <b>Klik Mouse / J</b>: Servis & Smash';
     this.container.appendChild(role);
 
     // Countdown overlay
@@ -705,50 +722,200 @@ class TennisGame {
   }
 
   _bindMobileCtrl() {
-    const leftBtn = document.getElementById('t3d-left');
-    const rightBtn = document.getElementById('t3d-right');
-    if (!leftBtn || !rightBtn) return;
-    const s = k => { this.keys[k] = true; };
-    const e = k => { this.keys[k] = false; };
+    const bindBtn = (id, keyName, isAction) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (isAction) {
+        el.addEventListener('touchstart', ev => { ev.preventDefault(); this._triggerAction(keyName); }, { passive: false });
+        el.addEventListener('mousedown', () => this._triggerAction(keyName));
+      } else {
+        const s = () => { this.keys[keyName] = true; };
+        const e = () => { this.keys[keyName] = false; };
+        el.addEventListener('touchstart', ev => { ev.preventDefault(); s(); }, { passive: false });
+        el.addEventListener('touchend', ev => { ev.preventDefault(); e(); }, { passive: false });
+        el.addEventListener('mousedown', s);
+        el.addEventListener('mouseup', e);
+        el.addEventListener('mouseleave', e);
+      }
+    };
 
-    leftBtn.addEventListener('touchstart', ev => { ev.preventDefault(); s('left'); }, { passive: false });
-    leftBtn.addEventListener('touchend', ev => { ev.preventDefault(); e('left'); }, { passive: false });
-    leftBtn.addEventListener('mousedown', () => s('left'));
-    leftBtn.addEventListener('mouseup', () => e('left'));
-    leftBtn.addEventListener('mouseleave', () => e('left'));
-
-    rightBtn.addEventListener('touchstart', ev => { ev.preventDefault(); s('right'); }, { passive: false });
-    rightBtn.addEventListener('touchend', ev => { ev.preventDefault(); e('right'); }, { passive: false });
-    rightBtn.addEventListener('mousedown', () => s('right'));
-    rightBtn.addEventListener('mouseup', () => e('right'));
-    rightBtn.addEventListener('mouseleave', () => e('right'));
+    bindBtn('t3d-up', 'up', false);
+    bindBtn('t3d-down', 'down', false);
+    bindBtn('t3d-left', 'left', false);
+    bindBtn('t3d-right', 'right', false);
+    bindBtn('t3d-jump-btn', 'jump', true);
+    bindBtn('t3d-smash-btn', 'smash', true);
   }
 
-  updateScoreHUD() {
-    const s1 = document.getElementById('t3d-nearscore');
-    const s2 = document.getElementById('t3d-farscore');
-    if (s1) s1.textContent = this.gs.near.score;
-    if (s2) s2.textContent = this.gs.far.score;
-    const rally = document.getElementById('t3d-rally');
-    if (rally) rally.textContent = this.gs.rally >= 3 ? `🔥 Ralian x${this.gs.rally}` : '';
-    this._renderScoreboardCanvas();
-  }
-
-  // ==================== KEYBOARD ====================
+  // ==================== KEYBOARD & MOUSE ====================
   bindKeys() {
     this._onKeyDown = e => {
-      if (['ArrowLeft', 'a', 'A'].includes(e.key)) { this.keys['left'] = true; e.stopPropagation(); }
-      if (['ArrowRight', 'd', 'D'].includes(e.key)) { this.keys['right'] = true; e.stopPropagation(); }
+      // Movement
+      if (['ArrowLeft', 'a', 'A'].includes(e.key)) { this.keys['left'] = true; e.preventDefault(); }
+      if (['ArrowRight', 'd', 'D'].includes(e.key)) { this.keys['right'] = true; e.preventDefault(); }
+      if (['ArrowUp', 'w', 'W'].includes(e.key)) { this.keys['up'] = true; e.preventDefault(); }
+      if (['ArrowDown', 's', 'S'].includes(e.key)) { this.keys['down'] = true; e.preventDefault(); }
+
+      // Jump
+      if (e.code === 'Space') {
+        this._triggerAction('jump');
+        e.preventDefault();
+      }
+      // Smash / Hit / Serve
+      if (['KeyJ', 'KeyF', 'Enter'].includes(e.code) || ['j', 'f', 'J', 'F'].includes(e.key)) {
+        this._triggerAction('smash');
+        e.preventDefault();
+      }
     };
+
     this._onKeyUp = e => {
       if (['ArrowLeft', 'a', 'A'].includes(e.key)) this.keys['left'] = false;
       if (['ArrowRight', 'd', 'D'].includes(e.key)) this.keys['right'] = false;
+      if (['ArrowUp', 'w', 'W'].includes(e.key)) this.keys['up'] = false;
+      if (['ArrowDown', 's', 'S'].includes(e.key)) this.keys['down'] = false;
     };
+
+    // Mouse click on canvas to Smash / Serve
+    this._onMouseDown = e => {
+      if (e.target.tagName !== 'BUTTON') {
+        this._triggerAction('smash');
+      }
+    };
+
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
+    this.container.addEventListener('mousedown', this._onMouseDown);
   }
 
-  // ==================== COUNTDOWN ====================
+  // ==================== INTERACTIVE ACTIONS ====================
+  _triggerAction(action) {
+    if (!this.active) return;
+    const player = (this.isP1 || this.isSolo) ? this.gs.near : this.gs.far;
+    const char = (this.isP1 || this.isSolo) ? this.charNear : this.charFar;
+
+    if (action === 'jump') {
+      if (!player.isJumping) {
+        player.isJumping = true;
+        player.vy = 8.5; // Jump upward velocity
+        this._playBeep(480);
+      }
+    } else if (action === 'smash') {
+      // If waiting for serve
+      if (this.gs.status === 'waiting_serve') {
+        const canServe = (this.gs.server === 'near' && (this.isP1 || this.isSolo)) ||
+                         (this.gs.server === 'far' && this.isP2);
+        if (canServe) {
+          this._executeServe();
+          return;
+        }
+      }
+
+      // Swing racket animation
+      char.swingTime = 0.45;
+
+      // Check for Smash / Hit contact
+      this._attemptHit(true);
+    }
+  }
+
+  _executeServe() {
+    const isNearServer = this.gs.server === 'near';
+    const serverPlayer = isNearServer ? this.gs.near : this.gs.far;
+    const b = this.gs.ball;
+
+    b.x = serverPlayer.x * 0.7;
+    b.z = isNearServer ? serverPlayer.z - 1.2 : serverPlayer.z + 1.2;
+    b.y = 2.4;
+    const speed = 11.0;
+    b.vz = isNearServer ? -speed : speed;
+    b.vx = (Math.random() - 0.5) * 4.5;
+    b.vy = 4.2;
+    b.isSmash = false;
+
+    this.gs.rally = 0;
+    this.gs.status = 'playing';
+
+    const prompt = document.getElementById('t3d-serve-prompt');
+    if (prompt) prompt.style.display = 'none';
+
+    this._playBeep(520);
+    this.socket.emit('tennis:state', this.gs);
+  }
+
+  _attemptHit(isDeliberateSmash) {
+    if (this.gs.status !== 'playing') return;
+    const b = this.gs.ball;
+    const isNear = (this.isP1 || this.isSolo);
+    const player = isNear ? this.gs.near : this.gs.far;
+    const char = isNear ? this.charNear : this.charFar;
+
+    const distX = Math.abs(b.x - player.x);
+    const distZ = Math.abs(b.z - player.z);
+    const isHeadingTowardsMe = isNear ? (b.vz > 0) : (b.vz < 0);
+
+    // Hit Range
+    if (isHeadingTowardsMe && distX < 2.5 && distZ < 2.8) {
+      char.swingTime = 0.45;
+      const hitOffset = (b.x - player.x) / 2.5;
+
+      // Check if it's a POWER SMASH (Player is jumping or ball is high)
+      const isAerial = player.isJumping || player.y > 0.5 || b.y > 2.2;
+
+      if (isDeliberateSmash && isAerial) {
+        // 💥 POWER SMASH!
+        b.isSmash = true;
+        const smashSpeed = Math.min(16.5 + this.gs.rally * 0.35, 25.0);
+        b.vz = isNear ? -smashSpeed : smashSpeed;
+        b.vx = hitOffset * 7.5 + (Math.random() - 0.5) * 0.6;
+        b.vy = -2.8; // Drives downward into opponent court!
+        this.gs.rally += 2;
+        this.shakeTimer = 0.18; // Camera micro-shake
+        this._showSmashFlash();
+        this._playSmashSound();
+      } else {
+        // Standard solid hit
+        b.isSmash = false;
+        const speed = Math.min(10.8 + this.gs.rally * 0.25, 20.0);
+        b.vz = isNear ? -speed : speed;
+        b.vx = hitOffset * 6.5 + (Math.random() - 0.5) * 0.5;
+        b.vy = 4.8 + Math.random() * 0.5;
+        this.gs.rally++;
+        this._playBeep(440);
+      }
+
+      this.updateScoreHUD();
+      this.socket.emit('tennis:state', this.gs);
+    }
+  }
+
+  _showSmashFlash() {
+    const ex = document.getElementById('t3d-smash-banner');
+    if (ex) ex.remove();
+    const el = document.createElement('div');
+    el.id = 't3d-smash-banner';
+    el.style.cssText = `
+      position: absolute; top: 38%; left: 50%;
+      transform: translate(-50%, -50%) scale(1);
+      font-size: 38px; font-weight: 900; font-style: italic;
+      color: #facc15; text-shadow: 0 0 25px #ef4444, 0 0 45px #f59e0b;
+      background: rgba(15, 23, 42, 0.9); border: 3px solid #ef4444;
+      border-radius: 28px; padding: 8px 36px; z-index: 25;
+      pointer-events: none; animation: t3dSmashPop 0.4s ease-out;
+    `;
+    el.textContent = '💥 POWER SMASH!!';
+    this.container.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+  }
+
+  _playSmashSound() {
+    if (!window.soundManager) return;
+    try {
+      window.soundManager.playBeep(750, 0.12, 'sawtooth');
+      setTimeout(() => window.soundManager.playBeep(220, 0.25, 'triangle'), 60);
+    } catch (e) {}
+  }
+
+  // ==================== COUNTDOWN & SERVE ====================
   startCountdown() {
     this.cdCount = 3;
     const el = document.getElementById('t3d-cd');
@@ -762,12 +929,44 @@ class TennisGame {
         this._playBeep(500 + this.cdCount * 50);
       } else {
         clearInterval(this.cdInterval);
-        this.gs.status = 'playing';
-        if (this.isP1 || this.isSolo) this._serveBall(true);
         if (this.cdOverlay) this.cdOverlay.style.display = 'none';
         this._playBeep(900);
+        this._readyServe('near');
       }
     }, 1000);
+  }
+
+  _readyServe(serverSide) {
+    this.gs.status = 'waiting_serve';
+    this.gs.server = serverSide;
+    const prompt = document.getElementById('t3d-serve-prompt');
+    if (prompt) {
+      prompt.style.display = 'block';
+      const isMyTurn = (serverSide === 'near' && (this.isP1 || this.isSolo)) ||
+                       (serverSide === 'far' && this.isP2);
+      prompt.textContent = isMyTurn
+        ? '⚡ TEKAN SMASH / SPACE UNTUK SERVIS!'
+        : '⏳ MENUNGGU LAWAN SERVIS...';
+    }
+
+    // Auto-serve fallback if player is idle after 4 seconds
+    if (this.isP1 || this.isSolo) {
+      setTimeout(() => {
+        if (this.active && this.gs.status === 'waiting_serve') {
+          this._executeServe();
+        }
+      }, 4000);
+    }
+  }
+
+  updateScoreHUD() {
+    const s1 = document.getElementById('t3d-nearscore');
+    const s2 = document.getElementById('t3d-farscore');
+    if (s1) s1.textContent = this.gs.near.score;
+    if (s2) s2.textContent = this.gs.far.score;
+    const rally = document.getElementById('t3d-rally');
+    if (rally) rally.textContent = this.gs.rally >= 3 ? `🔥 Ralian x${this.gs.rally}` : '';
+    this._renderScoreboardCanvas();
   }
 
   // ==================== SOCKET ====================
@@ -779,8 +978,15 @@ class TennisGame {
     };
     this._onPaddleUpdate = data => {
       if (!this.active) return;
-      if (this.isP1 && data.role === 'far') this.gs.far.x = data.x;
-      else if (this.isP2 && data.role === 'near') this.gs.near.x = data.x;
+      if (this.isP1 && data.role === 'far') {
+        this.gs.far.x = data.x;
+        this.gs.far.z = data.z;
+        this.gs.far.y = data.y || 0;
+      } else if (this.isP2 && data.role === 'near') {
+        this.gs.near.x = data.x;
+        this.gs.near.z = data.z;
+        this.gs.near.y = data.y || 0;
+      }
     };
     this._onPoint = data => {
       if (!this.active) return;
@@ -818,49 +1024,95 @@ class TennisGame {
   loop() {
     if (!this.active) return;
     this.animId = requestAnimationFrame(() => this.loop());
-    const delta = Math.min(this.clock.getDelta(), 0.1);
+    const delta = Math.min(this.clock.getDelta(), 0.08);
     this.update(delta);
     this.animateCharacters(delta);
     this.renderer.render(this.scene, this.camera);
   }
 
   update(delta) {
-    if (this.gs.status !== 'playing') return;
     const gs = this.gs;
-    const MOVE_SPEED = 9.5; // units/sec along X
+    const MOVE_X = 9.5; // X axis speed
+    const MOVE_Z = 8.5; // Z axis speed
     const MAX_X = this.COURT_HALF_W - 0.4;
 
-    // Local movement (Left / Right)
+    // Movement: Near Player (+Z court)
     if (this.isP1 || this.isSolo) {
-      if (this.keys['left']) gs.near.x = Math.max(-MAX_X, gs.near.x - MOVE_SPEED * delta);
-      if (this.keys['right']) gs.near.x = Math.min(MAX_X, gs.near.x + MOVE_SPEED * delta);
-      this.socket.emit('tennis:paddle', { role: 'near', x: gs.near.x });
-    } else if (this.isP2) {
-      // In P2's flipped camera, left on screen is +X in world space
-      if (this.keys['left']) gs.far.x = Math.min(MAX_X, gs.far.x + MOVE_SPEED * delta);
-      if (this.keys['right']) gs.far.x = Math.max(-MAX_X, gs.far.x - MOVE_SPEED * delta);
-      this.socket.emit('tennis:paddle', { role: 'far', x: gs.far.x });
+      const p = gs.near;
+      if (this.keys['left']) p.x = Math.max(-MAX_X, p.x - MOVE_X * delta);
+      if (this.keys['right']) p.x = Math.min(MAX_X, p.x + MOVE_X * delta);
+      if (this.keys['up']) p.z = Math.max(2.8, p.z - MOVE_Z * delta); // Forward towards net
+      if (this.keys['down']) p.z = Math.min(this.COURT_HALF_L + 2.5, p.z + MOVE_Z * delta); // Back towards baseline
+
+      // Jump Physics
+      if (p.isJumping) {
+        p.vy -= 22 * delta;
+        p.y += p.vy * delta;
+        if (p.y <= 0) { p.y = 0; p.vy = 0; p.isJumping = false; }
+      }
+
+      this.socket.emit('tennis:paddle', { role: 'near', x: p.x, z: p.z, y: p.y });
+    }
+
+    // Movement: Far Player (P2 with flipped view)
+    if (this.isP2) {
+      const p = gs.far;
+      // In P2 view facing +Z: left is +X, right is -X, up is +Z (towards net), down is -Z (baseline)
+      if (this.keys['left']) p.x = Math.min(MAX_X, p.x + MOVE_X * delta);
+      if (this.keys['right']) p.x = Math.max(-MAX_X, p.x - MOVE_X * delta);
+      if (this.keys['up']) p.z = Math.min(-2.8, p.z + MOVE_Z * delta);
+      if (this.keys['down']) p.z = Math.max(-this.COURT_HALF_L - 2.5, p.z - MOVE_Z * delta);
+
+      if (p.isJumping) {
+        p.vy -= 22 * delta;
+        p.y += p.vy * delta;
+        if (p.y <= 0) { p.y = 0; p.vy = 0; p.isJumping = false; }
+      }
+
+      this.socket.emit('tennis:paddle', { role: 'far', x: p.x, z: p.z, y: p.y });
     }
 
     // Bot AI (Controls far player in solo mode)
     if (this.isSolo) {
-      const diff = gs.ball.x - gs.far.x;
-      const botSpeed = Math.min(6.5 + gs.rally * 0.15, 10.0);
-      if (Math.abs(diff) > 0.15) {
-        gs.far.x += Math.sign(diff) * Math.min(botSpeed * delta, Math.abs(diff));
+      const p = gs.far;
+      const diffX = gs.ball.x - p.x;
+      const botSpeed = Math.min(7.0 + gs.rally * 0.15, 11.0);
+      if (Math.abs(diffX) > 0.15) {
+        p.x += Math.sign(diffX) * Math.min(botSpeed * delta, Math.abs(diffX));
       }
-      gs.far.x = Math.max(-MAX_X, Math.min(MAX_X, gs.far.x));
+      p.x = Math.max(-MAX_X, Math.min(MAX_X, p.x));
+
+      // Bot positioning along Z (steps forward to volley or jumps to smash)
+      if (gs.ball.vz < 0 && Math.abs(diffX) < 1.8 && gs.ball.z < -6.0) {
+        if (!p.isJumping && gs.ball.y > 2.2 && Math.random() < 0.08) {
+          p.isJumping = true;
+          p.vy = 8.0;
+        }
+      }
+      if (p.isJumping) {
+        p.vy -= 22 * delta;
+        p.y += p.vy * delta;
+        if (p.y <= 0) { p.y = 0; p.vy = 0; p.isJumping = false; }
+      }
     }
 
-    // Camera subtle tracking
-    if (this.isP2) {
-      this.camera.position.x = gs.far.x * 0.2;
-    } else {
-      this.camera.position.x = gs.near.x * 0.2;
+    // Camera follow & micro-shake
+    let camX = (this.isP2 ? gs.far.x : gs.near.x) * 0.22;
+    let shakeOffset = 0;
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= delta;
+      shakeOffset = (Math.random() - 0.5) * 0.35;
     }
+    this.camera.position.x = this.baseCamPos.x + camX + shakeOffset;
+    this.camera.position.y = this.baseCamPos.y + (shakeOffset * 0.5);
 
     // --- Authoritative Ball Physics (P1 / Solo) ---
     if (!this.isP1 && !this.isSolo) {
+      this._syncVisuals();
+      return;
+    }
+
+    if (gs.status !== 'playing') {
       this._syncVisuals();
       return;
     }
@@ -878,9 +1130,9 @@ class TennisGame {
       this._playBeep(360);
     }
 
-    // Side court barriers bounce
-    if (b.x < -MAX_X - 1.0) { b.x = -MAX_X - 1.0; b.vx = Math.abs(b.vx) * 0.85; this._playBeep(520); }
-    if (b.x > MAX_X + 1.0) { b.x = MAX_X + 1.0; b.vx = -Math.abs(b.vx) * 0.85; this._playBeep(520); }
+    // Side barriers bounce
+    if (b.x < -MAX_X - 1.2) { b.x = -MAX_X - 1.2; b.vx = Math.abs(b.vx) * 0.85; this._playBeep(520); }
+    if (b.x > MAX_X + 1.2) { b.x = MAX_X + 1.2; b.vx = -Math.abs(b.vx) * 0.85; this._playBeep(520); }
 
     // Net collision (Z = 0)
     if (Math.abs(b.z) < 0.25 && b.y < this.NET_H) {
@@ -889,57 +1141,56 @@ class TennisGame {
       this._playBeep(260);
     }
 
-    // --- Near Player Hit Zone (Z ~ +COURT_HALF_L) ---
-    const nearHitZ = this.COURT_HALF_L - 0.5;
-    if (b.vz > 0 && b.z >= nearHitZ - 0.8 && b.z <= nearHitZ + 1.2 && b.y <= 3.2) {
-      if (Math.abs(b.x - gs.near.x) < this.PADDLE_W) {
-        // Successful hit by Near Player!
-        const hitOffset = (b.x - gs.near.x) / this.PADDLE_W; // -1 to +1
-        const speed = Math.min(10.5 + gs.rally * 0.25, 20.0);
-        b.vz = -speed;
-        b.vx = hitOffset * 6.5 + (Math.random() - 0.5) * 0.8;
-        b.vy = 4.8 + Math.random() * 0.5;
-        b.z = nearHitZ - 0.85;
-        gs.rally++;
-        this.charNear.swingTime = 0.35;
-        this._playBeep(450);
-        this.updateScoreHUD();
-      }
+    // Proximity auto-hit fallback (so casual players can still rally smoothly)
+    const distNear = Math.hypot(b.x - gs.near.x, b.z - gs.near.z);
+    if (b.vz > 0 && distNear < 1.4 && b.y < 3.0) {
+      this._attemptHit(false);
     }
-
-    // --- Far Player Hit Zone (Z ~ -COURT_HALF_L) ---
-    const farHitZ = -this.COURT_HALF_L + 0.5;
-    if (b.vz < 0 && b.z <= farHitZ + 0.8 && b.z >= farHitZ - 1.2 && b.y <= 3.2) {
-      if (Math.abs(b.x - gs.far.x) < this.PADDLE_W) {
-        // Successful hit by Far Player!
-        const hitOffset = (b.x - gs.far.x) / this.PADDLE_W;
-        const speed = Math.min(10.5 + gs.rally * 0.25, 20.0);
-        b.vz = speed;
-        b.vx = hitOffset * 6.5 + (Math.random() - 0.5) * 0.8;
-        b.vy = 4.8 + Math.random() * 0.5;
-        b.z = farHitZ + 0.85;
-        gs.rally++;
-        this.charFar.swingTime = 0.35;
-        this._playBeep(450);
+    const distFar = Math.hypot(b.x - gs.far.x, b.z - gs.far.z);
+    if (b.vz < 0 && distFar < 1.4 && b.y < 3.0) {
+      if (this.isSolo) {
+        // Bot hits
+        const isBotSmash = gs.far.isJumping || gs.ball.y > 2.0;
+        this.charFar.swingTime = 0.45;
+        if (isBotSmash) {
+          b.isSmash = true;
+          const spd = Math.min(15.5 + gs.rally * 0.3, 24.0);
+          b.vz = spd;
+          b.vx = (b.x - gs.far.x) * 2.2;
+          b.vy = -2.5;
+          gs.rally += 2;
+          this._showSmashFlash();
+          this._playSmashSound();
+        } else {
+          b.isSmash = false;
+          const spd = Math.min(10.5 + gs.rally * 0.25, 20.0);
+          b.vz = spd;
+          b.vx = (b.x - gs.far.x) * 2.0;
+          b.vy = 4.8;
+          gs.rally++;
+          this._playBeep(440);
+        }
         this.updateScoreHUD();
+      } else {
+        this._attemptHit(false);
       }
     }
 
     // --- Point Detection (Ball past baseline) ---
-    if (b.z > this.COURT_HALF_L + 2.5) {
+    if (b.z > this.COURT_HALF_L + 3.0) {
       // Far player scores
       gs.far.score++;
       this._playBeep(220);
       this.socket.emit('tennis:point', { scorer: 'far', nearScore: gs.near.score, farScore: gs.far.score });
       this._showPointFlash('far');
-      this._checkWinner();
-    } else if (b.z < -this.COURT_HALF_L - 2.5) {
+      this._checkWinner('near');
+    } else if (b.z < -this.COURT_HALF_L - 3.0) {
       // Near player scores
       gs.near.score++;
       this._playBeep(220);
       this.socket.emit('tennis:point', { scorer: 'near', nearScore: gs.near.score, farScore: gs.far.score });
       this._showPointFlash('near');
-      this._checkWinner();
+      this._checkWinner('far');
     }
 
     // Broadcast state every 2 frames
@@ -953,10 +1204,11 @@ class TennisGame {
 
   _syncVisuals() {
     const gs = this.gs;
-    // Ball position
+    // Ball position and material
     if (this.ball3d) {
       this.ball3d.position.set(gs.ball.x, Math.max(this.BALL_R, gs.ball.y), gs.ball.z);
-      this.ball3d.rotation.x += 0.2;
+      this.ball3d.rotation.x += 0.25;
+      this.ball3d.material = gs.ball.isSmash ? this.ballMatSmash : this.ballMatRegular;
     }
     if (this.ballShadow) {
       this.ballShadow.position.set(gs.ball.x, 0.11, gs.ball.z);
@@ -964,70 +1216,67 @@ class TennisGame {
       this.ballShadow.scale.set(s, s, s);
     }
 
-    // Characters X positions
+    // Near Character (Position & Ground Shadow)
     if (this.charNear) {
-      this.charNear.root.position.x = gs.near.x;
-      if (this.nearTag) this.nearTag.position.x = gs.near.x;
+      this.charNear.root.position.set(gs.near.x, gs.near.y || 0, gs.near.z);
+      if (this.nearTag) this.nearTag.position.set(gs.near.x, (gs.near.y || 0) + 5.0, gs.near.z);
+      if (this.nearShadow) {
+        this.nearShadow.position.set(gs.near.x, 0.11, gs.near.z);
+        const sy = Math.max(0.3, 1 - (gs.near.y || 0) * 0.25);
+        this.nearShadow.scale.set(sy, sy, sy);
+      }
     }
+
+    // Far Character (Position & Ground Shadow)
     if (this.charFar) {
-      this.charFar.root.position.x = gs.far.x;
-      if (this.farTag) this.farTag.position.x = gs.far.x;
+      this.charFar.root.position.set(gs.far.x, gs.far.y || 0, gs.far.z);
+      if (this.farTag) this.farTag.position.set(gs.far.x, (gs.far.y || 0) + 5.0, gs.far.z);
+      if (this.farShadow) {
+        this.farShadow.position.set(gs.far.x, 0.11, gs.far.z);
+        const sy = Math.max(0.3, 1 - (gs.far.y || 0) * 0.25);
+        this.farShadow.scale.set(sy, sy, sy);
+      }
     }
   }
 
   animateCharacters(delta) {
     const t = this.clock.getElapsedTime();
 
-    // Animate Near Character
+    // Near Character animations
     if (this.charNear) {
       const ch = this.charNear;
-      const isMoving = (this.isP1 || this.isSolo) && (this.keys['left'] || this.keys['right']);
-      const walk = isMoving ? Math.sin(t * 12) * 0.4 : 0;
+      const isMoving = (this.keys['left'] || this.keys['right'] || this.keys['up'] || this.keys['down']) && (this.isP1 || this.isSolo);
+      const walk = isMoving ? Math.sin(t * 14) * 0.45 : 0;
       if (ch.leftLeg) ch.leftLeg.rotation.x = walk;
       if (ch.rightLeg) ch.rightLeg.rotation.x = -walk;
 
-      // Arm racket swing
+      // Arm swing / Smash animation
       if (ch.swingTime > 0) {
         ch.swingTime -= delta;
-        if (ch.rightArm) ch.rightArm.rotation.x = -Math.PI / 2 + Math.sin(ch.swingTime * 18) * 0.8;
+        if (ch.rightArm) ch.rightArm.rotation.x = -Math.PI * 0.75 + Math.sin(ch.swingTime * 18) * 1.2;
       } else {
         if (ch.rightArm) ch.rightArm.rotation.x = -0.3 + Math.sin(t * 2) * 0.08;
       }
-      ch.root.position.y = isMoving ? Math.abs(Math.sin(t * 12)) * 0.08 : Math.sin(t * 2) * 0.03;
     }
 
-    // Animate Far Character
+    // Far Character animations
     if (this.charFar) {
       const ch = this.charFar;
-      const isMoving = this.isP2 && (this.keys['left'] || this.keys['right']);
-      const walk = (isMoving || this.isSolo) ? Math.sin(t * 12) * 0.4 : 0;
+      const isMoving = (this.keys['left'] || this.keys['right'] || this.keys['up'] || this.keys['down']) && this.isP2;
+      const walk = (isMoving || this.isSolo) ? Math.sin(t * 14) * 0.45 : 0;
       if (ch.leftLeg) ch.leftLeg.rotation.x = walk;
       if (ch.rightLeg) ch.rightLeg.rotation.x = -walk;
 
       if (ch.swingTime > 0) {
         ch.swingTime -= delta;
-        if (ch.rightArm) ch.rightArm.rotation.x = -Math.PI / 2 + Math.sin(ch.swingTime * 18) * 0.8;
+        if (ch.rightArm) ch.rightArm.rotation.x = -Math.PI * 0.75 + Math.sin(ch.swingTime * 18) * 1.2;
       } else {
         if (ch.rightArm) ch.rightArm.rotation.x = -0.3 + Math.sin(t * 2 + 1) * 0.08;
       }
-      ch.root.position.y = Math.sin(t * 2 + 1) * 0.03;
     }
   }
 
-  _serveBall(toFar) {
-    const gs = this.gs;
-    gs.ball.x = (toFar ? gs.near.x : gs.far.x) * 0.5;
-    gs.ball.z = toFar ? this.COURT_HALF_L - 1.2 : -this.COURT_HALF_L + 1.2;
-    gs.ball.y = 2.2;
-    const speed = 10.5;
-    gs.ball.vz = toFar ? -speed : speed;
-    gs.ball.vx = (Math.random() - 0.5) * 4.0;
-    gs.ball.vy = 4.2;
-    gs.rally = 0;
-    gs.status = 'playing';
-  }
-
-  _checkWinner() {
+  _checkWinner(nextServer) {
     const gs = this.gs;
     if (gs.near.score >= gs.maxScore || gs.far.score >= gs.maxScore) {
       gs.status = 'finished';
@@ -1047,8 +1296,8 @@ class TennisGame {
       gs.status = 'point';
       setTimeout(() => {
         if (!this.active || gs.status === 'finished') return;
-        this._serveBall(gs.near.score <= gs.far.score);
-      }, 1400);
+        this._readyServe(nextServer || 'near');
+      }, 1500);
     }
   }
 
@@ -1124,6 +1373,7 @@ class TennisGame {
     window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keyup', this._onKeyUp);
     window.removeEventListener('resize', this._onResize);
+    this.container.removeEventListener('mousedown', this._onMouseDown);
     this.socket.off('tennis:state', this._onStateUpdate);
     this.socket.off('tennis:paddle', this._onPaddleUpdate);
     this.socket.off('tennis:point', this._onPoint);
@@ -1141,7 +1391,7 @@ class TennisGame {
   }
 }
 
-// Flash animation CSS
+// Flash and Smash animation CSS
 (function() {
   if (!document.getElementById('t3d-anim')) {
     const s = document.createElement('style');
@@ -1151,6 +1401,11 @@ class TennisGame {
         0% { transform: translate(-50%,-50%) scale(0.5); opacity:0; }
         60% { transform: translate(-50%,-50%) scale(1.1); opacity:1; }
         100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
+      }
+      @keyframes t3dSmashPop {
+        0% { transform: translate(-50%,-50%) scale(0.3) rotate(-6deg); opacity:0; }
+        50% { transform: translate(-50%,-50%) scale(1.2) rotate(2deg); opacity:1; }
+        100% { transform: translate(-50%,-50%) scale(1.0) rotate(0deg); opacity:1; }
       }
     `;
     document.head.appendChild(s);
