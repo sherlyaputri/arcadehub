@@ -53,6 +53,8 @@ class TennisGame {
 
   // ==================== THREE.JS INIT ====================
   initThree() {
+    this.container.style.position = 'relative';
+    this.container.style.overflow = 'hidden';
     this.width = this.container.clientWidth || 1200;
     this.height = this.container.clientHeight || 700;
 
@@ -949,6 +951,8 @@ class TennisGame {
       }
     }
     this.container.innerHTML = '';
+    this.container.style.position = '';
+    this.container.style.overflow = '';
   }
 }
 

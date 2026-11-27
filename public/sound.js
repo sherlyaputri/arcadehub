@@ -340,6 +340,7 @@ class SoundManager {
 
   getBgmBpm(type) {
     if (type === 'racing') return 132;
+    if (type === 'tennis') return 124;
     if (type === 'quiz') return 108;
     if (type === 'territory' || type === 'tictactoe') return 102;
     return 116; // sambungkata
@@ -462,6 +463,32 @@ class SoundManager {
       if (step % 8 === 0) {
         [220.00, 277.18, 329.63].forEach(f => this.playSynthNote(f, time, 0.35, 'sawtooth', 0.06, true));
       }
+      if (step % 4 === 0) this.playDrumBeat('kick', time);
+      if (step % 8 === 4) this.playDrumBeat('snare', time);
+      if (step % 2 === 1) this.playDrumBeat('hihat', time);
+
+    } else if (type === 'tennis') {
+      // 🎾 TENNIS DUEL 3D: Upbeat retro arcade sports chiptune
+      const tennisBass = [
+        82.41, 0, 82.41, 123.47, 98.00, 0, 98.00, 146.83,
+        110.00, 0, 110.00, 164.81, 73.42, 0, 110.00, 146.83
+      ];
+      const tFreq = tennisBass[step % 16];
+      if (tFreq > 0) this.playSynthNote(tFreq, time, 0.14, 'square', 0.12, true);
+
+      // Energetic arcade lead melody
+      const tennisLead = [
+        329.63, 392.00, 493.88, 587.33, 493.88, 392.00, 329.63, 0,
+        369.99, 440.00, 554.37, 659.25, 554.37, 440.00, 369.99, 0,
+        392.00, 493.88, 587.33, 739.99, 587.33, 493.88, 392.00, 0,
+        293.66, 369.99, 440.00, 587.33, 440.00, 369.99, 293.66, 0
+      ];
+      if (step % 2 === 0) {
+        const lNote = tennisLead[(step / 2) % 32];
+        if (lNote > 0) this.playSynthNote(lNote, time, 0.13, 'sawtooth', 0.08, true);
+      }
+
+      // Sports stadium rhythm
       if (step % 4 === 0) this.playDrumBeat('kick', time);
       if (step % 8 === 4) this.playDrumBeat('snare', time);
       if (step % 2 === 1) this.playDrumBeat('hihat', time);
